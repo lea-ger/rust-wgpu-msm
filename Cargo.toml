@@ -1,0 +1,12 @@
+[package]
+name = "msm-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winit = "0.30.9"
+wgpu = "24.0.1"
+pollster = "0.4.0"
+wasm-bindgen = "0.2.100"
+web-sys = "0.3.77"
+wasm-bindgen-futures = "0.4.50"
