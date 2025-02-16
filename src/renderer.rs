@@ -2,8 +2,10 @@ use std::borrow::Cow;
 use std::future::Future;
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
 use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
+use wgpu::util::DeviceExt;
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
+use crate::scenegraph::{Vertex, TEST_VERTICES};
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -85,6 +87,12 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output =Rend
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl")))
         });
 
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(TEST_VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
@@ -92,7 +100,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output =Rend
                 module: &shader,
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
-                buffers: &[],
+                buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -116,11 +124,12 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output =Rend
             device,
             queue,
             render_pipeline,
+            vertex_buffer,
+            num_vertices: TEST_VERTICES.len() as u32,
         }
     }
 }
 
-#[allow(dead_code)]
 pub struct Renderer {
     window: Rc<Window>,
     instance: Instance,
@@ -130,6 +139,8 @@ pub struct Renderer {
     pub device: Device,
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
+    pub vertex_buffer: wgpu::Buffer,
+    pub num_vertices: u32,
 }
 
 pub struct RenderProxy {

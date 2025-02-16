@@ -54,7 +54,8 @@ impl App {
                 ..Default::default()
             });
             rpass.set_pipeline(&renderer.render_pipeline);
-            rpass.draw(0..3, 0..1);
+            rpass.set_vertex_buffer(0, renderer.vertex_buffer.slice(..));
+            rpass.draw(0..renderer.num_vertices, 0..1);
         }
 
         let command_buffer = encoder.finish();

@@ -701,6 +701,7 @@ dependencies = [
 name = "msm-demo"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "pollster",
  "wasm-bindgen",
  "wasm-bindgen-futures",
