@@ -28,57 +28,37 @@ pub const TEST_VERTICES: &[Vertex] = &[
     Vertex { _pos: [0.5, -0.5, 0.0] },
 ];
 
-/*
 
 #[derive(Debug)]
 struct NodeData {
     name: String,
-    children: Vec<Rc<RefCell<Node>>>,
+    matrix: glam::Mat4,
 }
 
 impl NodeData {
     pub fn new(name: String) -> Self {
         Self {
             name,
-            children: Vec::new(),
+            matrix: glam::Mat4::IDENTITY,
         }
     }
 
-    pub fn add_child(&mut self, child: Node) {
-        self.children.push(Rc::new(RefCell::new(child)));
-    }
-
-    pub fn find_node(&mut self, name: &str) -> Option<&mut NodeData> {
-        for child in &self.children {
-            let mut child_borrow = child.borrow_mut();
-            return match &mut *child_borrow {
-                Node::GroupNode(group_node) => {
-                    if group_node.node.name == name {
-                        return Some(&mut group_node.node);
-                    }
-                    group_node.node.find_node(name)
-                }
-                Node::RenderNode(render_node) => {
-                    if render_node.node.name == name {
-                        return Some(&mut render_node.node);
-                    }
-                    render_node.node.find_node(name)
-                }
-            }
-        }
-        None
+    pub fn set_matrix(&mut self, matrix: glam::Mat4) {
+        self.matrix = matrix;
     }
 }
 
 #[derive(Debug)]
 pub struct GroupNode {
     node: NodeData,
+    pub children: Vec<Node>,
 }
 
 impl GroupNode {
     pub fn new(name: String) -> Self {
         Self {
             node: NodeData::new(name),
+            children: Vec::new(),
         }
     }
 }
@@ -86,13 +66,19 @@ impl GroupNode {
 #[derive(Debug)]
 pub struct RenderNode {
     node: NodeData,
+    vertices: Vec<Vertex>,
 }
 
 impl RenderNode {
     pub fn new(name: String) -> Self {
         Self {
             node: NodeData::new(name),
+            vertices: Vec::new(),
         }
+    }
+
+    pub fn set_vertices(&mut self, vertices: Vec<Vertex>) {
+        self.vertices = vertices;
     }
 }
 
@@ -103,51 +89,91 @@ enum Node {
 }
 
 pub struct SceneGraph {
-    pub root: Rc<Node>,
+    pub root: Node,
 }
 
 impl SceneGraph {
     pub fn new() -> Self {
         Self {
-            root: Rc::new(Node::GroupNode(GroupNode::new("root".to_string()))),
+            root: Node::GroupNode(GroupNode::new("root".to_string())),
         }
     }
 
-    pub fn add_child(&mut self, parent: &str, child: GroupNode) {
-        let root = self.root.borrow_mut();
-        let mut parent_node = self.find_node(root, parent).unwrap();
-        parent_node.children.push(Rc::new(RefCell::new(Node::GroupNode(child))));
+    pub fn add_child_to_root(self, child: Node) {
+        let root = self.root;
+        match root {
+            Node::GroupNode(mut group) => {
+                group.children.push(child);
+            }
+            _ => {}
+        }
     }
 
-    pub fn find_node(&self, node: &mut Node, name: &str) -> Option<&mut NodeData> {
-        let mut node = match node {
-            Node::GroupNode(group_node) => &group_node.node,
-            Node::RenderNode(render_node) => &render_node.node,
-        };
-        node.find_node(name)
+    pub fn add_child(&mut self, parent: &str, child: Node) {
+        let mut parent_node = self.find_child_mut(parent).unwrap();
+        if let Node::GroupNode(ref mut group) = parent_node {
+            group.children.push(child);
+        }
     }
 
-    pub fn generate_buffers(&self) {
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
-        self.generate_buffers_recursive(&self.root, &mut vertices, &mut indices);
+    pub fn find_child(&self, name: &str) -> Option<&Node> {
+        self.find_child_deep(name)
     }
 
-    fn generate_buffers_recursive(
-        &self,
-        node: &Node,
-        vertices: &mut Vec<Vertex>,
-        indices: &mut Vec<u16>,
-    ) {
-        match node {
-            Node::GroupNode(group_node) => {
-                for child in &group_node.node.children {
-                    self.generate_buffers_recursive(&child.borrow(), vertices, indices);
+    pub fn find_child_mut(&mut self, name: &str) -> Option<&mut Node> {
+        self.find_child_mut_deep(name)
+    }
+
+    /*
+    * Iterative function to find a child node by name.
+    * An iterative function is used since Rust prefers it over recursion.
+     */
+    fn find_child_deep<'a>(&'a self, name: &str) -> Option<&'a Node> {
+        let mut stack = vec![&self.root];
+        while let Some(node) = stack.pop() {
+            match node {
+                Node::GroupNode(group) => {
+                    if group.node.name == name {
+                        return Some(node);
+                    }
+                    for child in &group.children {
+                        stack.push(child);
+                    }
+                }
+                Node::RenderNode(render) => {
+                    if render.node.name == name {
+                        return Some(node);
+                    }
                 }
             }
-            Node::RenderNode(render_node) => {
-                // Generate vertices and indices
+        }
+        None
+    }
+
+    fn find_child_mut_deep(&mut self, name: &str) -> Option<&mut Node> {
+        let mut stack = vec![&mut self.root];
+        while let Some(node) = stack.pop() {
+            match node {
+                Node::GroupNode(group) => {
+                    for child in &mut group.children {
+                        match child {
+                            Node::GroupNode(group) => {
+                                if group.node.name == name {
+                                    return Some(child);
+                                }
+                                stack.push(child);
+                            }
+                            Node::RenderNode(render) => {
+                                if render.node.name == name {
+                                    return Some(child);
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
             }
         }
+        None
     }
-}*/
+}
