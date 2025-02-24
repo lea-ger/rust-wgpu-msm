@@ -7,12 +7,11 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="setup vertices struct, wip: scenegraph">
+    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="wip: scenegraph">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/scenegraph.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scenegraph.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -126,6 +125,7 @@
       <workItem from="1739712233912" duration="13731000" />
       <workItem from="1740237014965" duration="70000" />
       <workItem from="1740237150251" duration="12904000" />
+      <workItem from="1740325286390" duration="18119000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />
@@ -143,7 +143,15 @@
       <option name="project" value="LOCAL" />
       <updated>1739726022436</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="wip: scenegraph">
+      <option name="closed" value="true" />
+      <created>1740325428451</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1740325428451</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -152,6 +160,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="setup basic rendering" />
     <MESSAGE value="setup vertices struct, wip: scenegraph" />
-    <option name="LAST_COMMIT_MESSAGE" value="setup vertices struct, wip: scenegraph" />
+    <MESSAGE value="wip: scenegraph" />
+    <option name="LAST_COMMIT_MESSAGE" value="wip: scenegraph" />
   </component>
 </project>

@@ -1,11 +1,14 @@
+use crate::scenegraph::{
+    GroupNode, Node, RenderNode, SceneGraph, SceneGraphIterator, Vertex, TEST_VERTICES,
+};
+use glam::Vec3;
 use std::borrow::Cow;
 use std::future::Future;
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
-use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
 use wgpu::util::DeviceExt;
+use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
-use crate::scenegraph::{Vertex, TEST_VERTICES};
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -16,7 +19,7 @@ type Rc<T> = std::sync::Arc<T>;
 #[cfg(target_arch = "wasm32")]
 const CANVAS_ID: &str = "wgpu-canvas";
 
-pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output =Renderer> + 'static {
+pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Renderer> + 'static {
     #[allow(unused_mut)]
     let mut window_attrs = Window::default_attributes();
 
@@ -84,14 +87,34 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output =Rend
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl")))
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(TEST_VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let scene_graph = create_scenegraph();
+        let scene_graph_iter = SceneGraphIterator::new(&scene_graph);
+        let mut buffer_wrappers = vec![];
+        for (vertices, indices) in scene_graph_iter {
+            println!("{:?}", vertices);
+            print!("____");
+            let num_vertices = vertices.len() as u32;
+            let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(&*vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+            let num_indices = indices.len() as u32;
+            let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(&*indices),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+            buffer_wrappers.push(BufferWrapper {
+                vertex_buffer,
+                index_buffer,
+                num_indices,
+                num_vertices,
+            });
+        }
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
@@ -124,10 +147,30 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output =Rend
             device,
             queue,
             render_pipeline,
-            vertex_buffer,
-            num_vertices: TEST_VERTICES.len() as u32,
+            buffer_wrappers,
         }
     }
+}
+
+pub fn create_scenegraph() -> SceneGraph {
+    let mut scenegraph = SceneGraph::new();
+    let mut triangle = RenderNode::new("triangle".to_string());
+    triangle.set_vertices(TEST_VERTICES.to_vec());
+    let matrix = glam::Mat4::from_scale_rotation_translation(
+        glam::Vec3::new(1.0, 1.0, 1.0),
+        glam::Quat::from_rotation_z(0.0),
+        glam::Vec3::new(0.5, 0.0, 0.0),
+    );
+    triangle.set_matrix(matrix);
+    scenegraph.add_child_to_root(Node::RenderNode(triangle));
+    scenegraph
+}
+
+pub struct BufferWrapper {
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub num_indices: u32,
+    pub num_vertices: u32,
 }
 
 pub struct Renderer {
@@ -139,8 +182,7 @@ pub struct Renderer {
     pub device: Device,
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
-    pub vertex_buffer: wgpu::Buffer,
-    pub num_vertices: u32,
+    pub buffer_wrappers: Vec<BufferWrapper>,
 }
 
 pub struct RenderProxy {

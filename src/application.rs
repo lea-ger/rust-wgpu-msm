@@ -6,7 +6,7 @@
 
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
-
+use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -14,7 +14,8 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::WindowId,
 };
-use crate::renderer::{RenderProxy, Renderer};
+use crate::renderer::{create_scenegraph, RenderProxy, Renderer};
+use crate::scenegraph::{SceneGraph, SceneGraphIterator};
 
 enum MaybeRenderer {
     Proxy(RenderProxy),
@@ -53,9 +54,17 @@ impl App {
                 })],
                 ..Default::default()
             });
+
             rpass.set_pipeline(&renderer.render_pipeline);
-            rpass.set_vertex_buffer(0, renderer.vertex_buffer.slice(..));
-            rpass.draw(0..renderer.num_vertices, 0..1);
+            for buffer in &renderer.buffer_wrappers {
+                rpass.set_vertex_buffer(0, buffer.vertex_buffer.slice(..));
+                if (buffer.num_indices > 0) {
+                    rpass.set_index_buffer(buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                    rpass.draw_indexed(0..buffer.num_indices, 0, 0..1);
+                } else {
+                    rpass.draw(0..buffer.num_vertices, 0..1);
+                }
+            }
         }
 
         let command_buffer = encoder.finish();
