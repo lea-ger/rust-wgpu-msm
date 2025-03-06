@@ -1,6 +1,7 @@
 mod application;
 mod renderer;
 mod scenegraph;
+mod camera;
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::UnwrapThrowExt;

@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -12,28 +12,31 @@ impl Vertex {
         wgpu::VertexBufferLayout {
             array_stride: size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ]
+            attributes: &[wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 0,
+                format: wgpu::VertexFormat::Float32x3,
+            }],
         }
     }
 }
 
 pub const TEST_VERTICES: &[Vertex] = &[
-    Vertex { _pos: [0.0, 0.5, 0.0] },
-    Vertex { _pos: [-0.5, -0.5, 0.0] },
-    Vertex { _pos: [0.5, -0.5, 0.0] },
+    Vertex {
+        _pos: [0.0, 0.5, 0.0],
+    },
+    Vertex {
+        _pos: [-0.5, -0.5, 0.0],
+    },
+    Vertex {
+        _pos: [0.5, -0.5, 0.0],
+    },
 ];
-
 
 #[derive(Debug)]
 pub struct NodeData {
     name: String,
-    matrix: glam::Mat4,
+    matrix: Mat4,
 }
 
 impl NodeData {
@@ -86,6 +89,10 @@ impl RenderNode {
             vertices: Vec::new(),
             indices: Vec::new(),
         }
+    }
+
+    pub fn get_name(&self) -> String {
+        self.node.name.clone()
     }
 
     pub fn set_vertices(&mut self, vertices: Vec<Vertex>) {
@@ -144,8 +151,8 @@ impl SceneGraph {
     }
 
     /*
-    * Iterative function to find a child node by name.
-    * An iterative function is used since Rust prefers it over recursion.
+     * Iterative function to find a child node by name.
+     * An iterative function is used since Rust prefers it over recursion.
      */
     fn find_child_deep(&self, name: &str) -> Option<&Node> {
         let mut stack = vec![&self.root];
@@ -198,19 +205,21 @@ impl SceneGraph {
 }
 
 pub struct SceneGraphIterator<'a> {
-    stack: Vec<(&'a Node, glam::Mat4)>,
+    stack: Vec<(&'a Node, Mat4)>,
+    mvp_matrix: Mat4,
 }
 
 impl<'a> SceneGraphIterator<'a> {
-    pub fn new(scene_graph: &'a SceneGraph) -> Self {
+    pub fn new(scene_graph: &'a SceneGraph, mvp_matrix: Mat4) -> Self {
         Self {
-            stack: vec![(&scene_graph.root, glam::Mat4::IDENTITY)],
+            stack: vec![(&scene_graph.root, Mat4::IDENTITY)],
+            mvp_matrix,
         }
     }
 }
 
 impl<'a> Iterator for SceneGraphIterator<'a> {
-    type Item = (Vec<Vertex>, Vec<u32>);
+    type Item = RenderNode;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some((node, parent_matrix)) = self.stack.pop() {
@@ -222,12 +231,27 @@ impl<'a> Iterator for SceneGraphIterator<'a> {
                     }
                 }
                 Node::RenderNode(render) => {
-                    let current_matrix = parent_matrix * render.node.matrix;
-                    let model_vertices: Vec<Vertex> = render.vertices.iter().map(|vertex| {
-                        let pos = current_matrix.transform_point3(Vec3::new(vertex._pos[0], vertex._pos[1], vertex._pos[2]));
-                        Vertex { _pos: [pos.x, pos.y, pos.z] }
-                    }).collect();
-                    return Some((model_vertices, render.indices.clone()));
+                    let current_matrix = parent_matrix * render.node.matrix * self.mvp_matrix;
+                    let model_vertices: Vec<Vertex> = render
+                        .vertices
+                        .iter()
+                        .map(|vertex| {
+                            let pos = current_matrix.transform_point3(Vec3::new(
+                                vertex._pos[0],
+                                vertex._pos[1],
+                                vertex._pos[2],
+                            ));
+                            Vertex {
+                                _pos: [pos.x, pos.y, pos.z],
+                            }
+                        })
+                        .collect();
+
+                    let mut model = RenderNode::new(render.node.name.clone());
+                    model.set_vertices(model_vertices);
+                    model.set_indices(render.indices.clone());
+
+                    return Some(model);
                 }
             }
         }

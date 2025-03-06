@@ -1,7 +1,7 @@
 use crate::scenegraph::{
     GroupNode, Node, RenderNode, SceneGraph, SceneGraphIterator, Vertex, TEST_VERTICES,
 };
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use std::future::Future;
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
@@ -9,6 +9,7 @@ use wgpu::util::DeviceExt;
 use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
+use crate::camera::{Camera, CameraController};
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -90,22 +91,33 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
+        let camera = Camera {
+            eye: Vec3::new(0.0, 0.0, 1.0),
+            target: Vec3::new(0.0, 0.0, 0.0),
+            up: Vec3::new(0.0, 1.0, 0.0),
+            aspect: size.width as f32 / size.height as f32,
+            fovy: 45.0,
+            znear: 0.1,
+            zfar: 100.0,
+        };
+        let camera_controller = CameraController::new(0.2, 0.2);
+
         let scene_graph = create_scenegraph();
-        let scene_graph_iter = SceneGraphIterator::new(&scene_graph);
+        let scene_graph_iter = SceneGraphIterator::new(&scene_graph, camera.calculate_matrix());
         let mut buffer_wrappers = vec![];
-        for (vertices, indices) in scene_graph_iter {
-            println!("{:?}", vertices);
+        for node in scene_graph_iter {
+            println!("{:?}", node.vertices);
             print!("____");
-            let num_vertices = vertices.len() as u32;
+            let num_vertices = node.vertices.len() as u32;
             let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: None,
-                contents: bytemuck::cast_slice(&*vertices),
+                contents: bytemuck::cast_slice(&*node.vertices),
                 usage: wgpu::BufferUsages::VERTEX,
             });
-            let num_indices = indices.len() as u32;
+            let num_indices = node.indices.len() as u32;
             let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&*indices),
+                label: Some(node.get_name().as_str()),
+                contents: bytemuck::cast_slice(&*node.indices),
                 usage: wgpu::BufferUsages::INDEX,
             });
             buffer_wrappers.push(BufferWrapper {
@@ -148,6 +160,8 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             queue,
             render_pipeline,
             buffer_wrappers,
+            camera,
+            camera_controller,
         }
     }
 }
@@ -183,6 +197,8 @@ pub struct Renderer {
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
     pub buffer_wrappers: Vec<BufferWrapper>,
+    pub camera: Camera,
+    pub camera_controller: CameraController,
 }
 
 pub struct RenderProxy {
