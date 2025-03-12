@@ -4,10 +4,9 @@
  *
  */
 use crate::renderer::{RenderProxy, Renderer};
-use glam::{Mat4, Vec3};
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
-use winit::event::{DeviceEvent, DeviceId, ElementState, Event, KeyEvent, MouseButton};
+use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
     application::ApplicationHandler,
@@ -44,6 +43,7 @@ impl App {
         let view = frame.texture.create_view(&Default::default());
         let mut encoder = renderer.device.create_command_encoder(&Default::default());
 
+        print!("render");
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -68,11 +68,19 @@ impl App {
                     rpass.draw(0..buffer.num_vertices, 0..1);
                 }
             }
+            rpass.set_bind_group(1, &renderer.camera_bind_group, &[]);
         }
 
         let command_buffer = encoder.finish();
         renderer.queue.submit([command_buffer]);
         frame.present();
+    }
+
+    fn redraw(&mut self) {
+        let MaybeRenderer::Renderer(renderer) = &mut self.renderer else {
+            return;
+        };
+        renderer.update_buffers();
     }
 
     fn resized(&mut self, size: PhysicalSize<u32>) {
@@ -136,11 +144,15 @@ impl ApplicationHandler<Renderer> for App {
             WindowEvent::KeyboardInput { .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
                     renderer.camera_controller.process_events(&event);
+                    renderer.camera_uniform.update(&renderer.camera);
+                    self.redraw();
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
                     renderer.camera_controller.process_scroll(&delta);
+                    renderer.camera_uniform.update(&renderer.camera);
+                    self.redraw();
                 }
             }
             WindowEvent::MouseInput {
