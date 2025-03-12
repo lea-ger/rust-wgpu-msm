@@ -1,10 +1,10 @@
 use glam::{DMat4, Mat4, Vec3, Vec3A};
 use std::time::Duration;
+use wgpu::util::DeviceExt;
 use wgpu::Device;
 use winit::dpi::PhysicalPosition;
 use winit::event::{ElementState, KeyEvent, MouseScrollDelta, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
-use wgpu::util::DeviceExt;
 
 pub struct Camera {
     pub eye: Vec3,
@@ -20,55 +20,52 @@ pub struct Camera {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraUniform {
     pub view_proj: [[f32; 4]; 4],
-    pub position: [f32; 3],
+    pub position: [f32; 4],
 }
 
 impl CameraUniform {
     pub fn from_camera(camera: &Camera) -> Self {
+        let o = Vec3::new(1., 1., 1.);
         Self {
             view_proj: camera.calculate_matrix().to_cols_array_2d(),
-            position: camera.eye.into(),
+            position: [camera.eye.x, camera.eye.y, camera.eye.z, 1.0],
         }
     }
 
     pub fn update(&mut self, camera: &Camera) {
         self.view_proj = camera.calculate_matrix().to_cols_array_2d();
-        self.position = camera.eye.into();
+        self.position = [camera.eye.x, camera.eye.y, camera.eye.z, 1.0];
     }
 
     pub fn get_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }
-            ],
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
             label: Some("camera_bind_group_layout"),
         })
     }
 
     pub fn get_camera_buffer(self, device: &Device) -> wgpu::Buffer {
-        device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: bytemuck::cast_slice(&[self]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            }
-        )
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[self]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
     }
 }
 
 impl Camera {
     pub fn calculate_matrix(&self) -> Mat4 {
-        let view = glam::Mat4::look_at_lh(self.eye, self.target, self.up);
-        let projection = glam::Mat4::perspective_lh(self.fovy, self.aspect, self.znear, self.zfar);
+        let view = Mat4::look_at_lh(self.eye, self.target, self.up);
+        let projection = Mat4::perspective_lh(self.fovy, self.aspect, self.znear, self.zfar);
         view * projection
     }
 

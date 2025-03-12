@@ -79,8 +79,6 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             surface.configure(&device, &surface_config);
         }
 
-
-
         let camera = Camera {
             eye: Vec3::new(0.0, 0.0, 1.0),
             target: Vec3::new(0.0, 0.0, 0.0),
@@ -173,13 +171,13 @@ fn create_buffers_from_scenegraph(device: &Device, camera: &Camera, scene_graph:
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(node.get_name().as_str()),
             contents: bytemuck::cast_slice(&*node.vertices),
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
         let num_indices = node.indices.len() as u32;
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(node.get_name().as_str()),
             contents: bytemuck::cast_slice(&*node.indices),
-            usage: wgpu::BufferUsages::INDEX,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
         });
         buffer_wrappers.push(BufferWrapper {
             vertex_buffer,

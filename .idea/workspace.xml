@@ -131,7 +131,7 @@
       <workItem from="1741258079156" duration="425000" />
       <workItem from="1741258555899" duration="19649000" />
       <workItem from="1741628318990" duration="13077000" />
-      <workItem from="1741728362672" duration="3169000" />
+      <workItem from="1741728362672" duration="5780000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />
@@ -165,7 +165,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741292956593</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="wip: camera, mvp and event handling">
+      <option name="closed" value="true" />
+      <created>1741742650011</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1741742650011</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

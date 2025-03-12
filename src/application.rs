@@ -43,7 +43,6 @@ impl App {
         let view = frame.texture.create_view(&Default::default());
         let mut encoder = renderer.device.create_command_encoder(&Default::default());
 
-        print!("render");
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -58,6 +57,7 @@ impl App {
             });
 
             rpass.set_pipeline(&renderer.render_pipeline);
+            rpass.set_bind_group(0, &renderer.camera_bind_group, &[]);
             for buffer in &renderer.buffer_wrappers {
                 rpass.set_vertex_buffer(0, buffer.vertex_buffer.slice(..));
                 if (buffer.num_indices > 0) {
@@ -68,7 +68,6 @@ impl App {
                     rpass.draw(0..buffer.num_vertices, 0..1);
                 }
             }
-            rpass.set_bind_group(1, &renderer.camera_bind_group, &[]);
         }
 
         let command_buffer = encoder.finish();
