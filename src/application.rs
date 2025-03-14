@@ -24,6 +24,7 @@ enum MaybeRenderer {
 pub struct App {
     renderer: MaybeRenderer,
     mouse_pressed: bool,
+    last_render_time: instant::Instant,
 }
 
 impl App {
@@ -31,6 +32,7 @@ impl App {
         Self {
             renderer: MaybeRenderer::Proxy(RenderProxy::new(event_loop.create_proxy())),
             mouse_pressed: false,
+            last_render_time: instant::Instant::now()
         }
     }
 
@@ -79,6 +81,12 @@ impl App {
         let MaybeRenderer::Renderer(renderer) = &mut self.renderer else {
             return;
         };
+        let now = instant::Instant::now();
+        let dt = now - self.last_render_time;
+        self.last_render_time = now;
+        renderer.camera_controller.update_camera(&mut renderer.camera, dt);
+        renderer.camera_uniform.update(&renderer.camera);
+
         renderer.update_buffers();
     }
 
@@ -143,14 +151,12 @@ impl ApplicationHandler<Renderer> for App {
             WindowEvent::KeyboardInput { .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
                     renderer.camera_controller.process_events(&event);
-                    renderer.camera_uniform.update(&renderer.camera);
                     self.redraw();
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
                     renderer.camera_controller.process_scroll(&delta);
-                    renderer.camera_uniform.update(&renderer.camera);
                     self.redraw();
                 }
             }

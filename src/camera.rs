@@ -25,7 +25,6 @@ pub struct CameraUniform {
 
 impl CameraUniform {
     pub fn from_camera(camera: &Camera) -> Self {
-        let o = Vec3::new(1., 1., 1.);
         Self {
             view_proj: camera.calculate_matrix().to_cols_array_2d(),
             position: [camera.eye.x, camera.eye.y, camera.eye.z, 1.0],
@@ -35,6 +34,8 @@ impl CameraUniform {
     pub fn update(&mut self, camera: &Camera) {
         self.view_proj = camera.calculate_matrix().to_cols_array_2d();
         self.position = [camera.eye.x, camera.eye.y, camera.eye.z, 1.0];
+        println!("{:?}", self.position);
+        println!("{:?}", self.view_proj)
     }
 
     pub fn get_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
@@ -62,11 +63,18 @@ impl CameraUniform {
     }
 }
 
+pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array_2d(&[
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 0.5, 0.5],
+    [0.0, 0.0, 0.0, 1.0],
+]);
+
 impl Camera {
     pub fn calculate_matrix(&self) -> Mat4 {
         let view = Mat4::look_at_lh(self.eye, self.target, self.up);
         let projection = Mat4::perspective_lh(self.fovy, self.aspect, self.znear, self.zfar);
-        view * projection
+        OPENGL_TO_WGPU_MATRIX * view * projection
     }
 
     pub fn resize(&mut self, width: f32, height: f32) {

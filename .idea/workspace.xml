@@ -9,10 +9,10 @@
   <component name="ChangeListManager">
     <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="wip: camera, mvp and event handling">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/camera.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/camera.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -131,7 +131,9 @@
       <workItem from="1741258079156" duration="425000" />
       <workItem from="1741258555899" duration="19649000" />
       <workItem from="1741628318990" duration="13077000" />
-      <workItem from="1741728362672" duration="5780000" />
+      <workItem from="1741728362672" duration="6436000" />
+      <workItem from="1741886909269" duration="67000" />
+      <workItem from="1741887001549" duration="4063000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />
@@ -173,7 +175,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741742650011</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="wip: camera, mvp and event handling">
+      <option name="closed" value="true" />
+      <created>1741745386781</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1741745386781</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
