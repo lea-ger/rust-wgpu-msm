@@ -45,6 +45,13 @@ impl App {
         let view = frame.texture.create_view(&Default::default());
         let mut encoder = renderer.device.create_command_encoder(&Default::default());
 
+        let now = instant::Instant::now();
+        let dt = now - self.last_render_time;
+        self.last_render_time = now;
+        renderer.camera_controller.update_camera(&mut renderer.camera);
+        renderer.camera_uniform.update(&renderer.camera);
+        renderer.queue.write_buffer(&renderer.camera_buffer, 0, bytemuck::cast_slice(&[renderer.camera_uniform]));
+
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -75,19 +82,6 @@ impl App {
         let command_buffer = encoder.finish();
         renderer.queue.submit([command_buffer]);
         frame.present();
-    }
-
-    fn redraw(&mut self) {
-        let MaybeRenderer::Renderer(renderer) = &mut self.renderer else {
-            return;
-        };
-        let now = instant::Instant::now();
-        let dt = now - self.last_render_time;
-        self.last_render_time = now;
-        renderer.camera_controller.update_camera(&mut renderer.camera, dt);
-        renderer.camera_uniform.update(&renderer.camera);
-
-        renderer.update_buffers();
     }
 
     fn resized(&mut self, size: PhysicalSize<u32>) {
@@ -121,9 +115,6 @@ impl ApplicationHandler<Renderer> for App {
     ) {
         match event {
             DeviceEvent::MouseMotion { delta } => {
-                if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
-                    renderer.camera_controller.process_mouse(delta.0, delta.1)
-                }
             },
             _ => (),
         }
@@ -151,13 +142,12 @@ impl ApplicationHandler<Renderer> for App {
             WindowEvent::KeyboardInput { .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
                     renderer.camera_controller.process_events(&event);
-                    self.redraw();
+                    self.draw();
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
-                    renderer.camera_controller.process_scroll(&delta);
-                    self.redraw();
+                    self.draw();
                 }
             }
             WindowEvent::MouseInput {

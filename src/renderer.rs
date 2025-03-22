@@ -1,6 +1,4 @@
-use crate::scenegraph::{
-    GroupNode, Node, RenderNode, SceneGraph, SceneGraphIterator, Vertex, TEST_VERTICES,
-};
+use crate::scenegraph::{GroupNode, Node, RenderNode, SceneGraph, SceneGraphIterator, Vertex, TEST_INDICES, TEST_VERTICES};
 use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use std::future::Future;
@@ -81,17 +79,21 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
 
         let camera = Camera {
             eye: Vec3::new(0.0, 0.0, 1.0),
-            target: Vec3::new(0.0, 0.0, 0.0),
-            up: Vec3::new(0.0, 1.0, 0.0),
+            target: Vec3::ZERO,
+            up: Vec3::Y,
             aspect: size.width as f32 / size.height as f32,
             fovy: 45.0,
-            znear: 0.1,
-            zfar: 100.0,
+            znear: 1.,
+            zfar: 20.,
         };
-        let camera_controller = CameraController::new(0.2, 0.2);
+        let camera_controller = CameraController::new(0.2);
         let mut camera_uniform = CameraUniform::from_camera(&camera);
         let camera_bind_group_layout = CameraUniform::get_bind_group_layout(&device);
-        let camera_buffer = camera_uniform.get_camera_buffer(&device);
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
             entries: &[
@@ -162,22 +164,20 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
 }
 
 fn create_buffers_from_scenegraph(device: &Device, camera: &Camera, scene_graph: &SceneGraph) -> Vec<BufferWrapper> {
-    let scene_graph_iter = SceneGraphIterator::new(&scene_graph, camera.calculate_matrix());
+    let scene_graph_iter = SceneGraphIterator::new(&scene_graph);
     let mut buffer_wrappers = vec![];
     for node in scene_graph_iter {
-        println!("{:?}", node.vertices);
-        print!("____");
         let num_vertices = node.vertices.len() as u32;
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(node.get_name().as_str()),
-            contents: bytemuck::cast_slice(&*node.vertices),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            contents: bytemuck::cast_slice(&node.vertices),
+            usage: wgpu::BufferUsages::VERTEX,
         });
         let num_indices = node.indices.len() as u32;
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(node.get_name().as_str()),
-            contents: bytemuck::cast_slice(&*node.indices),
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            contents: bytemuck::cast_slice(&node.indices),
+            usage: wgpu::BufferUsages::INDEX,
         });
         buffer_wrappers.push(BufferWrapper {
             vertex_buffer,
@@ -191,15 +191,10 @@ fn create_buffers_from_scenegraph(device: &Device, camera: &Camera, scene_graph:
 
 pub fn create_scenegraph() -> SceneGraph {
     let mut scenegraph = SceneGraph::new();
-    let mut triangle = RenderNode::new("triangle".to_string());
-    triangle.set_vertices(TEST_VERTICES.to_vec());
-    let matrix = glam::Mat4::from_scale_rotation_translation(
-        glam::Vec3::new(1.0, 1.0, 1.0),
-        glam::Quat::from_rotation_z(0.0),
-        glam::Vec3::new(0.5, 0.0, 0.0),
-    );
-    triangle.set_matrix(matrix);
-    scenegraph.add_child_to_root(Node::RenderNode(triangle));
+    let mut pentagon = RenderNode::new("pentagon".to_string());
+    pentagon.set_vertices(TEST_VERTICES.to_vec());
+    pentagon.set_indices(TEST_INDICES.to_vec());
+    scenegraph.add_child_to_root(Node::RenderNode(pentagon));
     scenegraph
 }
 
@@ -238,7 +233,7 @@ impl Renderer {
     }
 
     pub fn update_buffers(&mut self) {
-        let scene_graph_iter = SceneGraphIterator::new(&self.scene_graph, self.camera.calculate_matrix());
+        let scene_graph_iter = SceneGraphIterator::new(&self.scene_graph);
         let mut scene_graph_count = 0;
 
         // TODO this might cause problems

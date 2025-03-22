@@ -1,5 +1,5 @@
 struct VertexInput {
-    @location(0) position: vec4<f32>,
+    @location(0) position: vec3<f32>,
 };
 
 struct VertexOutput {
@@ -17,7 +17,7 @@ var<uniform> camera: Camera;
 fn vs_main(
     in: VertexInput,
 ) -> VertexOutput {
-    return VertexOutput(vec4<f32>(camera.view_proj * in.position));
+    return VertexOutput(camera.view_proj * vec4<f32>(in.position, 1.0));
 }
 
 @fragment

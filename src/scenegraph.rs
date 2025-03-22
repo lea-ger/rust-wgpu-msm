@@ -22,15 +22,18 @@ impl Vertex {
 }
 
 pub const TEST_VERTICES: &[Vertex] = &[
-    Vertex {
-        _pos: [0.0, 0.5, 0.0],
-    },
-    Vertex {
-        _pos: [-0.5, -0.5, 0.0],
-    },
-    Vertex {
-        _pos: [0.5, -0.5, 0.0],
-    },
+    Vertex { _pos: [-0.0868241, 0.49240386, 0.0] }, // A
+    Vertex { _pos: [-0.49513406, 0.06958647, 0.0] }, // B
+    Vertex { _pos: [-0.21918549, -0.44939706, 0.0] }, // C
+    Vertex { _pos: [0.35966998, -0.3473291, 0.0] }, // D
+    Vertex { _pos: [0.44147372, 0.2347359, 0.0] }, // E
+];
+
+pub const TEST_INDICES: &[u16] = &[
+    0, 1, 4,
+    1, 2, 4,
+    2, 3, 4,
+    0
 ];
 
 #[derive(Debug)]
@@ -43,11 +46,11 @@ impl NodeData {
     pub fn new(name: String) -> Self {
         Self {
             name,
-            matrix: glam::Mat4::IDENTITY,
+            matrix: Mat4::IDENTITY,
         }
     }
 
-    pub fn set_matrix(&mut self, matrix: glam::Mat4) {
+    pub fn set_matrix(&mut self, matrix: Mat4) {
         self.matrix = matrix;
     }
 }
@@ -66,7 +69,7 @@ impl GroupNode {
         }
     }
 
-    pub fn set_matrix(&mut self, matrix: glam::Mat4) {
+    pub fn set_matrix(&mut self, matrix: Mat4) {
         self.node.set_matrix(matrix);
     }
 
@@ -79,7 +82,7 @@ impl GroupNode {
 pub struct RenderNode {
     node: NodeData,
     pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
+    pub indices: Vec<u16>,
 }
 
 impl RenderNode {
@@ -99,11 +102,11 @@ impl RenderNode {
         self.vertices = vertices;
     }
 
-    pub fn set_indices(&mut self, indices: Vec<u32>) {
+    pub fn set_indices(&mut self, indices: Vec<u16>) {
         self.indices = indices;
     }
 
-    pub fn set_matrix(&mut self, matrix: glam::Mat4) {
+    pub fn set_matrix(&mut self, matrix: Mat4) {
         self.node.set_matrix(matrix);
     }
 }
@@ -206,14 +209,12 @@ impl SceneGraph {
 
 pub struct SceneGraphIterator<'a> {
     stack: Vec<(&'a Node, Mat4)>,
-    mvp_matrix: Mat4,
 }
 
 impl<'a> SceneGraphIterator<'a> {
-    pub fn new(scene_graph: &'a SceneGraph, mvp_matrix: Mat4) -> Self {
+    pub fn new(scene_graph: &'a SceneGraph) -> Self {
         Self {
             stack: vec![(&scene_graph.root, Mat4::IDENTITY)],
-            mvp_matrix,
         }
     }
 }
@@ -231,7 +232,7 @@ impl<'a> Iterator for SceneGraphIterator<'a> {
                     }
                 }
                 Node::RenderNode(render) => {
-                    let current_matrix = parent_matrix * render.node.matrix * self.mvp_matrix;
+                    let current_matrix = parent_matrix * render.node.matrix;
                     let model_vertices: Vec<Vertex> = render
                         .vertices
                         .iter()
