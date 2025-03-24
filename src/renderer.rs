@@ -1,14 +1,16 @@
-use crate::scenegraph::{GroupNode, Node, RenderNode, SceneGraph, SceneGraphIterator, Vertex, TEST_INDICES, TEST_VERTICES};
+use crate::camera::{Camera, CameraController, CameraUniform};
+use crate::model::{load_model, Vertex, TEST_INDICES, TEST_VERTICES};
+use crate::scenegraph::{GroupNode, Node, RenderNode, SceneGraph, SceneGraphIterator};
+use crate::texture;
 use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
 use wgpu::util::DeviceExt;
-use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
+use wgpu::{Adapter, BindGroupLayout, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
-use crate::camera::{Camera, CameraController, CameraUniform};
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -118,8 +120,29 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
-        let scene_graph = create_scenegraph();
-        let buffer_wrappers = create_buffers_from_scenegraph(&device, &camera, &scene_graph);
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+        let scene_graph = create_scenegraph(&device, &queue, &texture_bind_group_layout).await;
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
@@ -137,7 +160,13 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 targets: &[Some(swapchain_format.into())],
             }),
             primitive: Default::default(),
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: Default::default(),
             multiview: None,
             cache: None,
@@ -152,7 +181,6 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             device,
             queue,
             render_pipeline,
-            buffer_wrappers,
             camera,
             camera_controller,
             camera_buffer,
@@ -163,38 +191,21 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
     }
 }
 
-fn create_buffers_from_scenegraph(device: &Device, camera: &Camera, scene_graph: &SceneGraph) -> Vec<BufferWrapper> {
-    let scene_graph_iter = SceneGraphIterator::new(&scene_graph);
-    let mut buffer_wrappers = vec![];
-    for node in scene_graph_iter {
-        let num_vertices = node.vertices.len() as u32;
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(node.get_name().as_str()),
-            contents: bytemuck::cast_slice(&node.vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        let num_indices = node.indices.len() as u32;
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(node.get_name().as_str()),
-            contents: bytemuck::cast_slice(&node.indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-        buffer_wrappers.push(BufferWrapper {
-            vertex_buffer,
-            index_buffer,
-            num_indices,
-            num_vertices,
-        });
-    }
-    buffer_wrappers
-}
-
-pub fn create_scenegraph() -> SceneGraph {
+pub async fn create_scenegraph(device: &Device, queue: &Queue, texture_bind_group_layout: &BindGroupLayout) -> SceneGraph {
     let mut scenegraph = SceneGraph::new();
-    let mut pentagon = RenderNode::new("pentagon".to_string());
-    pentagon.set_vertices(TEST_VERTICES.to_vec());
-    pentagon.set_indices(TEST_INDICES.to_vec());
-    scenegraph.add_child_to_root(Node::RenderNode(pentagon));
+    let model = load_model(
+        "assets/macchu_picchu_Obj/macchu_picchu_obj.obj",
+        device,
+        queue,
+        texture_bind_group_layout
+    );
+    scenegraph.add_model_node(
+        None,
+        "macchu_picchu".to_string(),
+        device,
+        &model.await.unwrap(),
+        Mat4::from_scale(Vec3::splat(0.01)),
+    );
     scenegraph
 }
 
@@ -215,8 +226,7 @@ pub struct Renderer {
     pub device: Device,
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
-    pub buffer_wrappers: Vec<BufferWrapper>,
-    scene_graph: SceneGraph,
+    pub scene_graph: SceneGraph,
     pub camera: Camera,
     pub camera_controller: CameraController,
     pub camera_uniform: CameraUniform,
@@ -230,59 +240,6 @@ impl Renderer {
         self.surface_config.height = size.height;
         self.surface.configure(&self.device, &self.surface_config);
         self.camera.resize(size.width as f32, size.height as f32);
-    }
-
-    pub fn update_buffers(&mut self) {
-        let scene_graph_iter = SceneGraphIterator::new(&self.scene_graph);
-        let mut scene_graph_count = 0;
-
-        // TODO this might cause problems
-        for (i, node) in scene_graph_iter.enumerate() {
-            scene_graph_count += 1;
-            if i >= self.buffer_wrappers.len() {
-                // If the scene graph has more nodes than our current buffers, create new ones
-                let num_vertices = node.vertices.len() as u32;
-                let vertex_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some(node.get_name().as_str()),
-                    contents: bytemuck::cast_slice(&*node.vertices),
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
-                let num_indices = node.indices.len() as u32;
-                let index_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some(node.get_name().as_str()),
-                    contents: bytemuck::cast_slice(&*node.indices),
-                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-                });
-                self.buffer_wrappers.push(BufferWrapper {
-                    vertex_buffer,
-                    index_buffer,
-                    num_indices,
-                    num_vertices,
-                });
-            } else {
-                // Update existing buffers using queue.write_buffer
-                self.queue.write_buffer(
-                    &self.buffer_wrappers[i].vertex_buffer,
-                    0,
-                    bytemuck::cast_slice(&*node.vertices)
-                );
-
-                self.queue.write_buffer(
-                    &self.buffer_wrappers[i].index_buffer,
-                    0,
-                    bytemuck::cast_slice(&*node.indices)
-                );
-
-                // Update counts in case they changed
-                self.buffer_wrappers[i].num_vertices = node.vertices.len() as u32;
-                self.buffer_wrappers[i].num_indices = node.indices.len() as u32;
-            }
-        }
-
-        // Remove any extra buffers if the scene graph has fewer nodes now
-        if self.buffer_wrappers.len() > scene_graph_count {
-            self.buffer_wrappers.truncate(scene_graph_count);
-        }
     }
 }
 

@@ -1,40 +1,8 @@
-use bytemuck::{Pod, Zeroable};
+use crate::model;
+use crate::model::Vertex;
 use glam::{Mat4, Vec3};
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-pub struct Vertex {
-    pub _pos: [f32; 3],
-}
-
-impl Vertex {
-    pub fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[wgpu::VertexAttribute {
-                offset: 0,
-                shader_location: 0,
-                format: wgpu::VertexFormat::Float32x3,
-            }],
-        }
-    }
-}
-
-pub const TEST_VERTICES: &[Vertex] = &[
-    Vertex { _pos: [-0.0868241, 0.49240386, 0.0] }, // A
-    Vertex { _pos: [-0.49513406, 0.06958647, 0.0] }, // B
-    Vertex { _pos: [-0.21918549, -0.44939706, 0.0] }, // C
-    Vertex { _pos: [0.35966998, -0.3473291, 0.0] }, // D
-    Vertex { _pos: [0.44147372, 0.2347359, 0.0] }, // E
-];
-
-pub const TEST_INDICES: &[u16] = &[
-    0, 1, 4,
-    1, 2, 4,
-    2, 3, 4,
-    0
-];
+use wgpu::util::DeviceExt;
+use wgpu::RenderPass;
 
 #[derive(Debug)]
 pub struct NodeData {
@@ -78,36 +46,74 @@ impl GroupNode {
     }
 }
 
+trait Renderable {
+    fn render(&self);
+}
+
 #[derive(Debug)]
 pub struct RenderNode {
     node: NodeData,
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u16>,
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub num_elements: u32,
+    vertices: Vec<Vertex>,
 }
 
 impl RenderNode {
-    pub fn new(name: String) -> Self {
+    fn new(name: String, device: &wgpu::Device, vertices: &[Vertex], indices: &[u32]) -> Self {
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(&format!("{} Vertex Buffer", name)),
+            contents: bytemuck::cast_slice(vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(&format!("{} Index Buffer", name)),
+            contents: bytemuck::cast_slice(indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
         Self {
             node: NodeData::new(name),
-            vertices: Vec::new(),
-            indices: Vec::new(),
+            vertex_buffer,
+            index_buffer,
+            num_elements: indices.len() as u32,
+            vertices: vertices.to_vec(),
         }
     }
 
-    pub fn get_name(&self) -> String {
-        self.node.name.clone()
+    fn new_with_matrix(
+        name: String,
+        device: &wgpu::Device,
+        vertices: &[Vertex],
+        indices: &[u32],
+        matrix: Mat4,
+    ) -> Self {
+        let mut render_node = Self::new(name, device, vertices, indices);
+        render_node.set_matrix(matrix, device);
+        render_node
     }
 
-    pub fn set_vertices(&mut self, vertices: Vec<Vertex>) {
-        self.vertices = vertices;
-    }
-
-    pub fn set_indices(&mut self, indices: Vec<u16>) {
-        self.indices = indices;
-    }
-
-    pub fn set_matrix(&mut self, matrix: Mat4) {
+    fn set_matrix(&mut self, matrix: Mat4, device: &wgpu::Device) {
         self.node.set_matrix(matrix);
+        let transformed_vertices: Vec<Vertex> = self
+            .vertices
+            .iter()
+            .map(|vertex| {
+                let pos =
+                    matrix.transform_point3(Vec3::new(vertex.pos[0], vertex.pos[1], vertex.pos[2]));
+                Vertex {
+                    pos: [pos.x, pos.y, pos.z],
+                    ..*vertex
+                }
+            })
+            .collect();
+
+        self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(&format!("{} Vertex Buffer", self.node.name)),
+            contents: bytemuck::cast_slice(&transformed_vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
     }
 }
 
@@ -128,17 +134,40 @@ impl SceneGraph {
         }
     }
 
-    pub fn add_child_to_root(&mut self, child: Node) {
-        let mut root = &mut self.root;
-        match root {
-            Node::GroupNode(ref mut group) => {
-                group.children.push(child);
-            }
-            _ => {}
+    pub fn add_render_node(
+        &mut self,
+        parent: Option<&str>,
+        name: String,
+        device: &wgpu::Device,
+        vertices: &[Vertex],
+        indices: &[u32],
+        matrix: Mat4,
+    ) {
+        let render_node = RenderNode::new_with_matrix(name, device, vertices, indices, matrix);
+        self.add_child(parent, Node::RenderNode(render_node));
+    }
+
+    pub fn add_model_node(
+        &mut self,
+        parent: Option<&str>,
+        name: String,
+        device: &wgpu::Device,
+        model: &model::Model,
+        matrix: Mat4,
+    ) {
+        for mesh in &model.meshes {
+            let render_node = RenderNode::new_with_matrix(
+                format!("{}-{}", name, mesh.name),
+                device,
+                &mesh.vertices,
+                &mesh.indices,
+                matrix,
+            );
+            self.add_child(parent, Node::RenderNode(render_node));
         }
     }
 
-    pub fn add_child(&mut self, parent: &str, child: Node) {
+    pub fn add_child(&mut self, parent: Option<&str>, child: Node) {
         let mut parent_node = self.find_child_mut(parent).unwrap();
         if let Node::GroupNode(ref mut group) = parent_node {
             group.children.push(child);
@@ -149,8 +178,12 @@ impl SceneGraph {
         self.find_child_deep(name)
     }
 
-    pub fn find_child_mut(&mut self, name: &str) -> Option<&mut Node> {
-        self.find_child_mut_deep(name)
+    pub fn find_child_mut(&mut self, name: Option<&str>) -> Option<&mut Node> {
+        if let Some(name) = name {
+            self.find_child_mut_deep(name)
+        } else {
+            Some(&mut self.root)
+        }
     }
 
     /*
@@ -220,7 +253,7 @@ impl<'a> SceneGraphIterator<'a> {
 }
 
 impl<'a> Iterator for SceneGraphIterator<'a> {
-    type Item = RenderNode;
+    type Item = &'a RenderNode;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some((node, parent_matrix)) = self.stack.pop() {
@@ -232,30 +265,28 @@ impl<'a> Iterator for SceneGraphIterator<'a> {
                     }
                 }
                 Node::RenderNode(render) => {
-                    let current_matrix = parent_matrix * render.node.matrix;
-                    let model_vertices: Vec<Vertex> = render
-                        .vertices
-                        .iter()
-                        .map(|vertex| {
-                            let pos = current_matrix.transform_point3(Vec3::new(
-                                vertex._pos[0],
-                                vertex._pos[1],
-                                vertex._pos[2],
-                            ));
-                            Vertex {
-                                _pos: [pos.x, pos.y, pos.z],
-                            }
-                        })
-                        .collect();
-
-                    let mut model = RenderNode::new(render.node.name.clone());
-                    model.set_vertices(model_vertices);
-                    model.set_indices(render.indices.clone());
-
-                    return Some(model);
+                    return Some(render);
                 }
             }
         }
         None
+    }
+}
+
+pub trait DrawScenegraph<'a> {
+    fn draw_scenegraph(&mut self, scenegraph: &'a SceneGraph);
+}
+
+impl<'a, 'b> DrawScenegraph<'b> for RenderPass<'a>
+where
+    'b: 'a,
+{
+    fn draw_scenegraph(&mut self, scenegraph: &'b SceneGraph) {
+        let iterator = SceneGraphIterator::new(scenegraph);
+        for render_node in iterator {
+            self.set_vertex_buffer(0, render_node.vertex_buffer.slice(..));
+            self.set_index_buffer(render_node.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            self.draw_indexed(0..render_node.num_elements, 0, 0..1);
+        }
     }
 }

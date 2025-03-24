@@ -4,6 +4,7 @@
  *
  */
 use crate::renderer::{RenderProxy, Renderer};
+use crate::scenegraph::DrawScenegraph;
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
 use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton};
@@ -67,16 +68,7 @@ impl App {
 
             rpass.set_pipeline(&renderer.render_pipeline);
             rpass.set_bind_group(0, &renderer.camera_bind_group, &[]);
-            for buffer in &renderer.buffer_wrappers {
-                rpass.set_vertex_buffer(0, buffer.vertex_buffer.slice(..));
-                if (buffer.num_indices > 0) {
-                    rpass
-                        .set_index_buffer(buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                    rpass.draw_indexed(0..buffer.num_indices, 0, 0..1);
-                } else {
-                    rpass.draw(0..buffer.num_vertices, 0..1);
-                }
-            }
+            rpass.draw_scenegraph(&renderer.scene_graph)
         }
 
         let command_buffer = encoder.finish();
