@@ -7,6 +7,7 @@ use crate::renderer::{RenderProxy, Renderer};
 use crate::scenegraph::DrawScenegraph;
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
+use wgpu::util::RenderEncoder;
 use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
@@ -16,6 +17,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::WindowId,
 };
+use crate::texture::Texture;
 
 enum MaybeRenderer {
     Proxy(RenderProxy),
@@ -59,16 +61,30 @@ impl App {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
                         store: wgpu::StoreOp::Store,
                     },
-                })],
+                },
+                )],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &renderer.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 ..Default::default()
             });
 
             rpass.set_pipeline(&renderer.render_pipeline);
             rpass.set_bind_group(0, &renderer.camera_bind_group, &[]);
-            rpass.draw_scenegraph(&renderer.scene_graph)
+            rpass.draw_scenegraph(&renderer.scene_graph, 1)
         }
 
         let command_buffer = encoder.finish();
@@ -85,6 +101,8 @@ impl App {
         renderer
             .surface
             .configure(&renderer.device, &renderer.surface_config);
+
+        renderer.depth_texture = Texture::create_depth_texture(&renderer.device, &renderer.surface_config, "depth_texture");
     }
 }
 

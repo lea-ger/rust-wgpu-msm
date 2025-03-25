@@ -2,7 +2,7 @@
     Code taken from https://sotrh.github.io/learn-wgpu/beginner/tutorial9-models/#accessing-files-from-wasm
     Making this project ready for rendering on the web is not in the scope of this project, I'd just like to keep this as an option for the future.
  */
-
+use std::env;
 use cfg_if::cfg_if;
 
 use crate::texture;
@@ -28,11 +28,10 @@ pub async fn load_string(file_name: &str) -> anyhow::Result<String> {
                 .text()
                 .await?;
         } else {
-            let dir = std::env::var("OUT_DIR")
-                .expect("OUT_DIR not set");
+            let dir = env::current_dir()?;
             let path = std::path::Path::new(&dir)
-                .join("res")
                 .join(file_name);
+            println!("{}", path.display());
             let txt = std::fs::read_to_string(path)?;
         }
     }
@@ -50,11 +49,10 @@ pub async fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
                 .await?
                 .to_vec();
         } else {
-            let dir = std::env::var("OUT_DIR")
-                .expect("OUT_DIR not set");
+            let dir = env::current_dir()?;
             let path = std::path::Path::new(&dir)
-                .join("res")
                 .join(file_name);
+            println!("{}", path.display());
             let data = std::fs::read(path)?;
         }
     }
@@ -64,7 +62,7 @@ pub async fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
 
 
 pub async fn load_texture(
-    file_name: &Option<String>,
+    file_name: Option<&str>,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
 ) -> anyhow::Result<texture::Texture> {

@@ -1,6 +1,6 @@
 /*
-    Taken (mostly) from https://sotrh.github.io/learn-wgpu/beginner/tutorial9-models/#loading-models-with-tobj
- */
+   Taken (mostly) from https://sotrh.github.io/learn-wgpu/beginner/tutorial9-models/#loading-models-with-tobj
+*/
 
 use crate::resources::{load_string, load_texture};
 use crate::texture;
@@ -81,8 +81,34 @@ pub struct Model {
 #[derive(Debug)]
 pub struct Material {
     pub name: String,
-    pub diffuse_texture: texture::Texture,
-    pub bind_group: wgpu::BindGroup,
+    pub diffuse_texture: Option<texture::Texture>,
+    pub material: tobj::Material,
+}
+
+impl Material {
+    pub fn create_bind_group(
+        &self,
+        device: &Device,
+        layout: &wgpu::BindGroupLayout,
+    ) -> Option<wgpu::BindGroup> {
+        if let Some(diffuse_texture) = &self.diffuse_texture {
+            return Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    },
+                ],
+                label: Some(&self.name),
+            }))
+        }
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -95,12 +121,13 @@ pub struct Mesh {
 }
 
 pub async fn load_model(
+    file_path: &str,
     file_name: &str,
     device: &Device,
     queue: &wgpu::Queue,
-    layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<Model> {
-    let obj_text = load_string(file_name).await?;
+    let full_path = std::path::Path::new(&file_path).join(file_name);
+    let obj_text = load_string(full_path.to_str().unwrap()).await?;
     let obj_cursor = Cursor::new(obj_text);
     let mut obj_reader = BufReader::new(obj_cursor);
 
@@ -112,7 +139,9 @@ pub async fn load_model(
             ..Default::default()
         },
         |p| async move {
-            let mat_text = load_string(&p).await.unwrap();
+            // Replace the file path with the path to the material file
+            let material_path = std::path::Path::new(&file_path).join(&p);
+            let mat_text = load_string(material_path.to_str().unwrap()).await.unwrap();
             tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
         },
     )
@@ -120,27 +149,23 @@ pub async fn load_model(
 
     let mut materials = Vec::new();
     for m in obj_materials? {
-        let diffuse_texture = load_texture(&m.diffuse_texture, device, queue).await?;
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: None,
-        });
+        if m.diffuse_texture.is_none() {
+            materials.push(Material {
+                name: m.name.clone(),
+                diffuse_texture: None,
+                material: m.clone(),
+            });
+            continue;
+        }
+        let material = m.clone();
+        let texture_path = std::path::Path::new(&file_path).join(&m.diffuse_texture.unwrap());
+        let diffuse_texture = Some(load_texture(texture_path.to_str(), device, queue).await?);
 
         materials.push(Material {
             name: m.name,
             diffuse_texture,
-            bind_group,
-        })
+            material,
+        });
     }
 
     let meshes = models
@@ -185,7 +210,7 @@ pub async fn load_model(
             let len = m.mesh.indices.len() as u32;
 
             Mesh {
-                name: file_name.to_string(),
+                name: full_path.to_str().unwrap().to_string(),
                 vertices,
                 indices: m.mesh.indices,
                 num_elements: len,
@@ -199,9 +224,5 @@ pub async fn load_model(
 
 pub trait DrawModel<'a> {
     fn draw_mesh(&mut self, mesh: &'a Mesh);
-    fn draw_mesh_instanced(
-        &mut self,
-        mesh: &'a Mesh,
-        instances: Range<u32>,
-    );
+    fn draw_mesh_instanced(&mut self, mesh: &'a Mesh, instances: Range<u32>);
 }

@@ -1,0 +1,51 @@
+#
+## Alias OBJ Material File
+# Exported from SketchUp, (c) 2000-2012 Trimble Navigation Limited
+
+newmtl Hout
+Ka 0.000000 0.000000 0.000000
+Kd 0.768627 0.768627 0.768627
+Ks 0.330000 0.330000 0.330000
+map_Kd Example/Hout.jpg
+
+newmtl Color_000
+Ka 0.000000 0.000000 0.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.330000 0.330000 0.330000
+
+newmtl _4
+Ka 0.000000 0.000000 0.000000
+Kd 0.411765 0.235294 0.133333
+Ks 0.330000 0.330000 0.330000
+map_Kd Example/_4.jpg
+
+newmtl Concrete_Aggregate_Smoke
+Ka 0.000000 0.000000 0.000000
+Kd 0.603922 0.588235 0.580392
+Ks 0.330000 0.330000 0.330000
+map_Kd Example/Concrete_Aggregate_Smoke.jpg
+
+newmtl _2
+Ka 0.000000 0.000000 0.000000
+Kd 0.619608 0.368627 0.290196
+Ks 0.330000 0.330000 0.330000
+map_Kd Example/_2.jpg
+
+newmtl _3
+Ka 0.000000 0.000000 0.000000
+Kd 0.407843 0.333333 0.282353
+Ks 0.330000 0.330000 0.330000
+map_Kd Example/_3.jpg
+
+newmtl Translucent_Glass_Blue
+Ka 0.000000 0.000000 0.000000
+Kd 0.392157 0.584314 0.929412
+Ks 0.330000 0.330000 0.330000
+d 0.190000
+
+newmtl _1
+Ka 0.000000 0.000000 0.000000
+Kd 0.517647 0.329412 0.290196
+Ks 0.330000 0.330000 0.330000
+map_Kd Example/_1.jpg
+

@@ -85,8 +85,8 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             up: Vec3::Y,
             aspect: size.width as f32 / size.height as f32,
             fovy: 45.0,
-            znear: 1.,
-            zfar: 20.,
+            znear: 0.1,
+            zfar: 100.,
         };
         let camera_controller = CameraController::new(0.2);
         let mut camera_uniform = CameraUniform::from_camera(&camera);
@@ -107,11 +107,6 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             label: Some("camera_bind_group"),
         });
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[&camera_bind_group_layout],
-            push_constant_ranges: &[],
-        });
         let swapchain_capabilities = surface.get_capabilities(&adapter);
         let swapchain_format = swapchain_capabilities.formats[0];
 
@@ -144,6 +139,12 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             });
         let scene_graph = create_scenegraph(&device, &queue, &texture_bind_group_layout).await;
 
+        let depth_texture = texture::Texture::create_depth_texture(&device, &surface_config, "depth_texture");
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[&camera_bind_group_layout, &texture_bind_group_layout],
+            push_constant_ranges: &[],
+        });
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
@@ -157,9 +158,24 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 module: &shader,
                 entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
-                targets: &[Some(swapchain_format.into())],
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: surface_config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::REPLACE,
+                        alpha: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
             }),
-            primitive: Default::default(),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: texture::Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
@@ -167,7 +183,11 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
-            multisample: Default::default(),
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
             multiview: None,
             cache: None,
         });
@@ -187,6 +207,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             camera_bind_group,
             camera_uniform,
             scene_graph,
+            depth_texture,
         }
     }
 }
@@ -194,17 +215,18 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
 pub async fn create_scenegraph(device: &Device, queue: &Queue, texture_bind_group_layout: &BindGroupLayout) -> SceneGraph {
     let mut scenegraph = SceneGraph::new();
     let model = load_model(
-        "assets/macchu_picchu_Obj/macchu_picchu_obj.obj",
+        "assets/All_Files/Example/OBJ",
+        "Example.obj",
         device,
         queue,
-        texture_bind_group_layout
     );
     scenegraph.add_model_node(
         None,
         "macchu_picchu".to_string(),
         device,
         &model.await.unwrap(),
-        Mat4::from_scale(Vec3::splat(0.01)),
+        texture_bind_group_layout,
+        Mat4::IDENTITY,
     );
     scenegraph
 }
@@ -232,6 +254,7 @@ pub struct Renderer {
     pub camera_uniform: CameraUniform,
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
+    pub depth_texture: texture::Texture,
 }
 
 impl Renderer {

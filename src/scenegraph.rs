@@ -2,7 +2,7 @@ use crate::model;
 use crate::model::Vertex;
 use glam::{Mat4, Vec3};
 use wgpu::util::DeviceExt;
-use wgpu::RenderPass;
+use wgpu::{BindGroupLayout, RenderPass};
 
 #[derive(Debug)]
 pub struct NodeData {
@@ -56,11 +56,14 @@ pub struct RenderNode {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
+    pub material_bind_group: Option<wgpu::BindGroup>,
     vertices: Vec<Vertex>,
 }
 
 impl RenderNode {
-    fn new(name: String, device: &wgpu::Device, vertices: &[Vertex], indices: &[u32]) -> Self {
+    fn new(name: String, device: &wgpu::Device, vertices: &[Vertex], indices: &[u32],
+           material_bind_group: Option<wgpu::BindGroup>,
+    ) -> Self {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(&format!("{} Vertex Buffer", name)),
             contents: bytemuck::cast_slice(vertices),
@@ -78,6 +81,7 @@ impl RenderNode {
             vertex_buffer,
             index_buffer,
             num_elements: indices.len() as u32,
+            material_bind_group,
             vertices: vertices.to_vec(),
         }
     }
@@ -87,9 +91,10 @@ impl RenderNode {
         device: &wgpu::Device,
         vertices: &[Vertex],
         indices: &[u32],
+        material_bind_group: Option<wgpu::BindGroup>,
         matrix: Mat4,
     ) -> Self {
-        let mut render_node = Self::new(name, device, vertices, indices);
+        let mut render_node = Self::new(name, device, vertices, indices, material_bind_group);
         render_node.set_matrix(matrix, device);
         render_node
     }
@@ -143,7 +148,7 @@ impl SceneGraph {
         indices: &[u32],
         matrix: Mat4,
     ) {
-        let render_node = RenderNode::new_with_matrix(name, device, vertices, indices, matrix);
+        let render_node = RenderNode::new_with_matrix(name, device, vertices, indices, None, matrix);
         self.add_child(parent, Node::RenderNode(render_node));
     }
 
@@ -153,14 +158,19 @@ impl SceneGraph {
         name: String,
         device: &wgpu::Device,
         model: &model::Model,
+        bind_group_layout: &BindGroupLayout,
         matrix: Mat4,
     ) {
         for mesh in &model.meshes {
+            let material = &model.materials[mesh.material];
+            let bind_group = material.create_bind_group(device, &bind_group_layout);
+
             let render_node = RenderNode::new_with_matrix(
                 format!("{}-{}", name, mesh.name),
                 device,
                 &mesh.vertices,
                 &mesh.indices,
+                bind_group,
                 matrix,
             );
             self.add_child(parent, Node::RenderNode(render_node));
@@ -274,18 +284,23 @@ impl<'a> Iterator for SceneGraphIterator<'a> {
 }
 
 pub trait DrawScenegraph<'a> {
-    fn draw_scenegraph(&mut self, scenegraph: &'a SceneGraph);
+    fn draw_scenegraph(&mut self, scenegraph: &'a SceneGraph, material_bind_group_index: u32);
 }
 
 impl<'a, 'b> DrawScenegraph<'b> for RenderPass<'a>
 where
     'b: 'a,
 {
-    fn draw_scenegraph(&mut self, scenegraph: &'b SceneGraph) {
+    fn draw_scenegraph(&mut self, scenegraph: &'b SceneGraph, material_bind_group_index: u32) {
         let iterator = SceneGraphIterator::new(scenegraph);
         for render_node in iterator {
             self.set_vertex_buffer(0, render_node.vertex_buffer.slice(..));
             self.set_index_buffer(render_node.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            if let Some(material_bind_group) = &render_node.material_bind_group {
+                self.set_bind_group(material_bind_group_index, material_bind_group, &[]);
+            } else {
+                println!("Material bind group not found for {}", render_node.node.name);
+            }
             self.draw_indexed(0..render_node.num_elements, 0, 0..1);
         }
     }
