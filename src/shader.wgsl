@@ -25,12 +25,32 @@ fn vs_main(
     );
 }
 
+struct Material {
+    ambient: vec4<f32>,
+    diffuse: vec4<f32>,
+    specular: vec4<f32>,
+    shininess: f32,
+    dissolve: f32,
+};
+
 @group(1) @binding(0)
 var t_diffuse: texture_2d<f32>;
 @group(1) @binding(1)
 var s_diffuse: sampler;
+@group(1) @binding(2)
+var<uniform> material: Material;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    var texture_result = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    if (texture_result.r == 0.0 && texture_result.g == 0.0 && texture_result.b == 0.0 && texture_result.a == 0.0) {
+        return vec4<f32>(
+            material.diffuse.r,
+            material.diffuse.g,
+            material.diffuse.b,
+            material.dissolve
+        );
+    }
+
+    return texture_result;
 }

@@ -5,6 +5,7 @@ mod camera;
 mod model;
 mod resources;
 mod texture;
+mod light;
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::UnwrapThrowExt;

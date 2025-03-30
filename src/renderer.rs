@@ -70,9 +70,11 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             .unwrap_throw();
 
         let size = window.inner_size();
-        let surface_config = surface
-            .get_default_config(&adapter, size.width, size.height)
-            .unwrap_throw();
+        let surface_config = SurfaceConfiguration {
+            ..surface.get_default_config(&adapter, size.width, size.height)
+                .unwrap_throw()
+        };
+
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -88,7 +90,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             znear: 0.1,
             zfar: 100.,
         };
-        let camera_controller = CameraController::new(0.2);
+        let camera_controller = CameraController::new(2.);
         let mut camera_uniform = CameraUniform::from_camera(&camera);
         let camera_bind_group_layout = CameraUniform::get_bind_group_layout(&device);
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -115,7 +117,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
-        let texture_bind_group_layout =
+        let material_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
@@ -134,15 +136,25 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
                 ],
-                label: Some("texture_bind_group_layout"),
+                label: Some("material_bind_group_layout"),
             });
-        let scene_graph = create_scenegraph(&device, &queue, &texture_bind_group_layout).await;
+        let scene_graph = create_scenegraph(&device, &queue, &material_bind_group_layout).await;
 
         let depth_texture = texture::Texture::create_depth_texture(&device, &surface_config, "depth_texture");
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&camera_bind_group_layout, &texture_bind_group_layout],
+            bind_group_layouts: &[&camera_bind_group_layout, &material_bind_group_layout],
             push_constant_ranges: &[],
         });
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -161,8 +173,12 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 targets: &[Some(wgpu::ColorTargetState {
                     format: surface_config.format,
                     blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent::REPLACE,
-                        alpha: wgpu::BlendComponent::REPLACE,
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent::REPLACE
                     }),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -212,7 +228,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
     }
 }
 
-pub async fn create_scenegraph(device: &Device, queue: &Queue, texture_bind_group_layout: &BindGroupLayout) -> SceneGraph {
+pub async fn create_scenegraph(device: &Device, queue: &Queue, material_bind_group_layout: &BindGroupLayout) -> SceneGraph {
     let mut scenegraph = SceneGraph::new();
     let model = load_model(
         "assets/All_Files/Example/OBJ",
@@ -222,10 +238,10 @@ pub async fn create_scenegraph(device: &Device, queue: &Queue, texture_bind_grou
     );
     scenegraph.add_model_node(
         None,
-        "macchu_picchu".to_string(),
+        "house".to_string(),
         device,
         &model.await.unwrap(),
-        texture_bind_group_layout,
+        material_bind_group_layout,
         Mat4::IDENTITY,
     );
     scenegraph

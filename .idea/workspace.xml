@@ -8,36 +8,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="wip: model loading">
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4.mtl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4.obj" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4/Asphalt_New.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4/Concrete_Aggregate_Smoke.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4/Hout.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4/_1.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4/_2.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4/_3.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Building components/OBJ/Building components 4/_4.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Example/OBJ/Example.mtl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Example/OBJ/Example.obj" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Example/OBJ/Example/Concrete_Aggregate_Smoke.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Example/OBJ/Example/Hout.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Example/OBJ/Example/_1.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Example/OBJ/Example/_2.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Example/OBJ/Example/_3.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assets/All_Files/Example/OBJ/Example/_4.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/msm-demo.exe" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/assets/macchu_picchu_Obj/Map__104_Falloff.tga" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/assets/macchu_picchu_Obj/Map__107_Normal_Bump.tga" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/assets/macchu_picchu_Obj/Map__116_Normal_Bump.tga" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/assets/macchu_picchu_Obj/Map__81_Mix.tga" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/assets/macchu_picchu_Obj/macchu_picchu_obj.mtl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/assets/macchu_picchu_Obj/macchu_picchu_obj.obj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/assets/white.png" beforeDir="false" afterPath="$PROJECT_DIR$/assets/white.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/model.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/model.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/resources.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/resources.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/scenegraph.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scenegraph.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/texture.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/texture.rs" afterDir="false" />
@@ -82,36 +58,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Cargo.Run msm-demo.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "master",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/Leander/RustroverProjects/msm-demo/assets/All_Files/Building components/OBJ/Building components 4",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "org.rust.first.attach.projects": "true",
-    "settings.editor.selected.configurable": "editor.preferences.tabs",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Cargo.Run msm-demo.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Leander/RustroverProjects/msm-demo&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;editor.preferences.tabs&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Leander\RustroverProjects\msm-demo" />
       <recent name="C:\Users\Leander\RustroverProjects\msm-demo\assets\All_Files\Building components\OBJ\Building components 4" />
       <recent name="C:\Users\Leander\RustroverProjects\msm-demo\src\assets" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Leander\RustroverProjects\msm-demo" />
       <recent name="C:\Users\Leander\RustroverProjects\msm-demo\assets" />
       <recent name="C:\Users\Leander\RustroverProjects\msm-demo\assets\macchu_picchu_Obj" />
-      <recent name="C:\Users\Leander\RustroverProjects\msm-demo" />
       <recent name="C:\Users\Leander\RustroverProjects\msm-demo\src" />
     </key>
   </component>
@@ -179,6 +156,9 @@
       <workItem from="1742227512783" duration="6013000" />
       <workItem from="1742655171109" duration="29299000" />
       <workItem from="1742816821460" duration="28544000" />
+      <workItem from="1743094670881" duration="608000" />
+      <workItem from="1743252489138" duration="27865000" />
+      <workItem from="1743335641947" duration="6003000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />

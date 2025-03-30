@@ -1,12 +1,13 @@
 /*
    Taken (mostly) from https://sotrh.github.io/learn-wgpu/beginner/tutorial9-models/#loading-models-with-tobj
 */
-
 use crate::resources::{load_string, load_texture};
 use crate::texture;
+use crate::texture::get_default_texture;
 use bytemuck::{Pod, Zeroable};
 use std::io::{BufReader, Cursor};
 use std::ops::Range;
+use wgpu::util::DeviceExt;
 use wgpu::Device;
 
 #[repr(C)]
@@ -72,6 +73,36 @@ pub const TEST_VERTICES: &[Vertex] = &[
 ];
 pub const TEST_INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, 0];
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct MaterialUniform {
+    pub ambient: [f32; 4],
+    pub diffuse: [f32; 4],
+    pub specular: [f32; 4],
+    pub shininess: f32,
+    pub dissolve: f32,
+    _padding: [f32; 2],
+}
+
+impl MaterialUniform {
+    pub fn from_tobj_material(material: &tobj::Material) -> Self {
+        // Convert the ambient color to a 4-component vector
+        // by adding a padding bit
+        let ambient = material.ambient.unwrap_or([0.0; 3]);
+        let diffuse = material.diffuse.unwrap_or([0.0; 3]);
+        let specular = material.specular.unwrap_or([0.0; 3]);
+
+        Self {
+            ambient: [ambient[0], ambient[1], ambient[2], 0.0].into(),
+            diffuse: [diffuse[0], diffuse[1], diffuse[2], 0.0].into(),
+            specular: [specular[0], specular[1], specular[2], 0.0].into(),
+            shininess: material.shininess.unwrap_or(1.0),
+            dissolve: material.dissolve.unwrap_or(1.0),
+            _padding: [0.0; 2],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Model {
     pub meshes: Vec<Mesh>,
@@ -91,6 +122,13 @@ impl Material {
         device: &Device,
         layout: &wgpu::BindGroupLayout,
     ) -> Option<wgpu::BindGroup> {
+        let material_uniform = MaterialUniform::from_tobj_material(&self.material);
+        println!("material_uniform: {:?}", material_uniform);
+        let material_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Material Buffer"),
+            contents: bytemuck::cast_slice(&[material_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
         if let Some(diffuse_texture) = &self.diffuse_texture {
             return Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout,
@@ -102,6 +140,14 @@ impl Material {
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &material_buffer,
+                            offset: 0,
+                            size: None,
+                        }),
                     },
                 ],
                 label: Some(&self.name),
@@ -152,7 +198,7 @@ pub async fn load_model(
         if m.diffuse_texture.is_none() {
             materials.push(Material {
                 name: m.name.clone(),
-                diffuse_texture: None,
+                diffuse_texture: Some(texture::Texture::from_image(device, queue, &get_default_texture(), Some(m.name.as_str()))?),
                 material: m.clone(),
             });
             continue;

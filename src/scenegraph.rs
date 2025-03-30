@@ -1,7 +1,7 @@
 use crate::model;
 use crate::model::Vertex;
 use glam::{Mat4, Vec3};
-use wgpu::util::DeviceExt;
+use wgpu::util::{DeviceExt, RenderEncoder};
 use wgpu::{BindGroupLayout, RenderPass};
 
 #[derive(Debug)]
@@ -59,6 +59,12 @@ pub struct RenderNode {
     pub material_bind_group: Option<wgpu::BindGroup>,
     vertices: Vec<Vertex>,
 }
+
+/*#[derive(Debug)]
+pub struct LightNode {
+    node: NodeData,
+    pub light: Light,
+}*/
 
 impl RenderNode {
     fn new(name: String, device: &wgpu::Device, vertices: &[Vertex], indices: &[u32],
@@ -126,6 +132,7 @@ impl RenderNode {
 pub enum Node {
     GroupNode(GroupNode),
     RenderNode(RenderNode),
+    // LightNode(LightNode),
 }
 
 pub struct SceneGraph {
@@ -299,6 +306,7 @@ where
             if let Some(material_bind_group) = &render_node.material_bind_group {
                 self.set_bind_group(material_bind_group_index, material_bind_group, &[]);
             } else {
+                self.set_bind_group(material_bind_group_index, None, &[]);
                 println!("Material bind group not found for {}", render_node.node.name);
             }
             self.draw_indexed(0..render_node.num_elements, 0, 0..1);
