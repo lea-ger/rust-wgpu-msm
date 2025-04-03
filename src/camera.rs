@@ -51,13 +51,6 @@ impl CameraUniform {
     }
 }
 
-pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array_2d(&[
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 0.5, 0.5],
-    [0.0, 0.0, 0.0, 1.0],
-]);
-
 impl Camera {
     pub fn calculate_matrix(&self) -> Mat4 {
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
