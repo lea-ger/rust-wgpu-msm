@@ -82,7 +82,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
         }
 
         let camera = Camera {
-            eye: Vec3::new(0.0, 0.0, 1.0),
+            eye: Vec3::new(0.0, 0.0, 50.0),
             target: Vec3::ZERO,
             up: Vec3::Y,
             aspect: size.width as f32 / size.height as f32,
