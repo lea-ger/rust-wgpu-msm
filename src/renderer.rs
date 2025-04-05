@@ -1,7 +1,8 @@
 use crate::camera::{Camera, CameraController, CameraUniform};
-use crate::model::{load_model, Vertex, TEST_INDICES, TEST_VERTICES};
+use crate::model::{load_model, Material, Mesh, Model, Vertex, TEST_INDICES, TEST_VERTICES};
 use crate::scenegraph::{GroupNode, Node, RenderNode, SceneGraph, SceneGraphIterator};
 use crate::texture;
+use crate::texture::get_default_texture;
 use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use std::future::Future;
@@ -178,7 +179,11 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
                             operation: wgpu::BlendOperation::Add,
                         },
-                        alpha: wgpu::BlendComponent::REPLACE
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                            operation: wgpu::BlendOperation::Add,
+                        },
                     }),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -187,7 +192,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
                 conservative: false,
@@ -230,6 +235,38 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
 
 pub async fn create_scenegraph(device: &Device, queue: &Queue, material_bind_group_layout: &BindGroupLayout) -> SceneGraph {
     let mut scenegraph = SceneGraph::new();
+
+    let ground_vertices = [
+        Vertex { tex_coords: [-1.0, -1.0], pos: [-50.0, 0.0, -50.0], normal: [0.0, 1.0, 0.0] },
+        Vertex { tex_coords: [-1.0, -1.0], pos: [ 50.0, 0.0, -50.0], normal: [0.0, 1.0, 0.0] },
+        Vertex { tex_coords: [-1.0, -1.0], pos: [ 50.0, 0.0,  50.0], normal: [0.0, 1.0, 0.0] },
+        Vertex { tex_coords: [-1.0, -1.0], pos: [-50.0, 0.0,  50.0], normal: [0.0, 1.0, 0.0] },
+    ];
+    let ground_indices = [0, 1, 2, 0, 2, 3];
+    let default_texture = texture::Texture::from_image(device, queue, &get_default_texture(), Some("ground")).unwrap_or_else(
+        |e| throw_str(&format!("{e:#?}"))
+    );
+    let ground = Model {
+        meshes: vec![Mesh {
+            name: "ground".to_string(),
+            vertices: ground_vertices.to_vec(),
+            indices: ground_indices.to_vec(),
+            material: 0,
+            num_elements: ground_indices.len() as u32,
+        }],
+        materials: vec![Material {
+            name: "ground".to_string(),
+            diffuse_texture: Some(default_texture),
+            material: tobj::Material {
+                name: "ground".to_string(),
+                diffuse: Some([0.4, 0.3, 0.2]),
+                dissolve: Some(1.0),
+                ..Default::default()
+            },
+        }],
+    };
+    scenegraph.add_model_node(None, "ground".to_string(), device, &ground, material_bind_group_layout, Mat4::IDENTITY);
+
     let model = load_model(
         "assets/All_Files/Example/OBJ",
         "Example.obj",

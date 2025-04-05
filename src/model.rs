@@ -109,7 +109,7 @@ pub struct Model {
     pub materials: Vec<Material>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Material {
     pub name: String,
     pub diffuse_texture: Option<texture::Texture>,

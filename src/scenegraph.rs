@@ -291,16 +291,23 @@ impl<'a> Iterator for SceneGraphIterator<'a> {
 }
 
 pub trait DrawScenegraph<'a> {
-    fn draw_scenegraph(&mut self, scenegraph: &'a SceneGraph, material_bind_group_index: u32);
+    fn draw_scenegraph(&mut self, scenegraph: &'a SceneGraph, material_bind_group_index: u32, camera_position: &Vec3);
 }
 
 impl<'a, 'b> DrawScenegraph<'b> for RenderPass<'a>
 where
     'b: 'a,
 {
-    fn draw_scenegraph(&mut self, scenegraph: &'b SceneGraph, material_bind_group_index: u32) {
+    fn draw_scenegraph(&mut self, scenegraph: &'b SceneGraph, material_bind_group_index: u32, camera_position: &Vec3) {
         let iterator = SceneGraphIterator::new(scenegraph);
-        for render_node in iterator {
+        let mut render_nodes: Vec<&RenderNode> = iterator.collect();
+        render_nodes.sort_by(|a, b| {
+            let a_distance = (camera_position - Vec3::new(a.node.matrix.w_axis.x, a.node.matrix.w_axis.y, a.node.matrix.w_axis.z)).length_squared();
+            let b_distance = (camera_position - Vec3::new(b.node.matrix.w_axis.x, b.node.matrix.w_axis.y, b.node.matrix.w_axis.z)).length_squared();
+            a_distance.partial_cmp(&b_distance).unwrap()
+        });
+
+        for render_node in render_nodes {
             self.set_vertex_buffer(0, render_node.vertex_buffer.slice(..));
             self.set_index_buffer(render_node.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             if let Some(material_bind_group) = &render_node.material_bind_group {
