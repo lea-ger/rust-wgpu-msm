@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3};
+use glam::{Mat3, Mat4, Vec3};
 use std::clone::Clone;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -55,7 +55,6 @@ impl Camera {
     pub fn calculate_matrix(&self) -> Mat4 {
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
         let projection = Mat4::perspective_rh(self.fovy.to_radians(), self.aspect, self.znear, self.zfar);
-        println!("fov: {}, aspect: {}, znear: {}, zfar: {}", self.fovy, self.aspect, self.znear, self.zfar);
         projection * view
     }
 
@@ -93,25 +92,39 @@ impl Camera {
         let direction = (self.target - self.eye).normalize();
         self.eye += direction * factor;
     }
+
+    pub fn get_focal_point(&self) -> Vec3 {
+        self.eye + (self.target - self.eye).normalize() * 10.0
+    }
 }
 
 // Derived from: https://sotrh.github.io/learn-wgpu/beginner/tutorial6-uniforms/#a-controller-for-our-camera
 pub struct CameraController {
     speed: f32,
+    sensitivity: f32,
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
     is_right_pressed: bool,
+    is_mouse_pressed: bool,
+    delta_x: f64,
+    delta_y: f64,
+    last_mouse_position: Option<(f64, f64)>,
 }
 
 impl CameraController {
-    pub fn new(speed: f32) -> Self {
+    pub fn new(speed: f32, sensitivity: f32) -> Self {
         Self {
             speed,
+            sensitivity,
             is_forward_pressed: false,
             is_backward_pressed: false,
             is_left_pressed: false,
             is_right_pressed: false,
+            is_mouse_pressed: false,
+            last_mouse_position: None,
+            delta_x: 0.0,
+            delta_y: 0.0,
         }
     }
 
@@ -127,7 +140,8 @@ impl CameraController {
                 ..
             } => {
                 let is_pressed = *state == ElementState::Pressed;
-                match keycode {KeyCode::KeyW | KeyCode::ArrowUp => {
+                match keycode {
+                    KeyCode::KeyW | KeyCode::ArrowUp => {
                         self.is_forward_pressed = is_pressed;
                         true
                     }
@@ -146,6 +160,25 @@ impl CameraController {
                     _ => false,
                 }
             }
+            WindowEvent::MouseInput { state, button, .. } => {
+                if *button == winit::event::MouseButton::Left {
+                    self.is_mouse_pressed = *state == ElementState::Pressed;
+                }
+                true
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                if self.is_mouse_pressed {
+                    if let Some((last_x, last_y)) = self.last_mouse_position {
+                        self.delta_x = position.x - last_x;
+                        self.delta_y = position.y - last_y;
+                    }
+                } else {
+                    self.delta_x = 0.0;
+                    self.delta_y = 0.0;
+                }
+                self.last_mouse_position = Some((position.x, position.y));
+                true
+            }
             _ => false,
         }
     }
@@ -153,31 +186,32 @@ impl CameraController {
     pub fn update_camera(&self, camera: &mut Camera) {
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
-        let forward_mag = forward.length();
 
-        // Prevents glitching when the camera gets too close to the
-        // center of the scene.
-        if self.is_forward_pressed && forward_mag > self.speed {
-            camera.eye += forward_norm * self.speed;
+        if self.is_forward_pressed {
+            camera.move_by(forward_norm * self.speed);
         }
         if self.is_backward_pressed {
-            camera.eye -= forward_norm * self.speed;
+            camera.move_by(-forward_norm * self.speed);
         }
 
         let right = forward_norm.cross(camera.up);
 
-        // Redo radius calc in case the forward/backward is pressed.
-        let forward = camera.target - camera.eye;
-        let forward_mag = forward.length();
-
         if self.is_right_pressed {
-            // Rescale the distance between the target and the eye so
-            // that it doesn't change. The eye, therefore, still
-            // lies on the circle made by the target and eye.
-            camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
+            camera.move_by(right * self.speed);
         }
         if self.is_left_pressed {
-            camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+            camera.move_by(-right * self.speed);
+        }
+
+        if self.is_mouse_pressed {
+            let delta_x = self.delta_x as f32 * self.sensitivity;
+            let delta_y = self.delta_y as f32 * self.sensitivity;
+
+            let rotation_x = Mat3::from_rotation_y(delta_x.to_radians());
+            let rotation_y = Mat3::from_axis_angle(right, delta_y.to_radians());
+
+            let new_eye = rotation_y * rotation_x * (camera.eye - camera.get_focal_point()) + camera.get_focal_point();
+            camera.eye = new_eye;
         }
     }
 }

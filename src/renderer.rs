@@ -90,7 +90,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             znear: 0.1,
             zfar: 100.,
         };
-        let camera_controller = CameraController::new(2.);
+        let camera_controller = CameraController::new(1., 0.2);
         let mut camera_uniform = CameraUniform::from_camera(&camera);
         let camera_bind_group_layout = CameraUniform::get_bind_group_layout(&device);
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

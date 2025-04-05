@@ -7,16 +7,13 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="wip: model loading">
+    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="chore: change camera starting position">
       <change afterPath="$PROJECT_DIR$/msm-demo.exe" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/camera.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/camera.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/model.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/model.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/scenegraph.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scenegraph.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/texture.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/texture.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -158,7 +155,10 @@
       <workItem from="1742816821460" duration="28544000" />
       <workItem from="1743094670881" duration="608000" />
       <workItem from="1743252489138" duration="27865000" />
-      <workItem from="1743335641947" duration="6003000" />
+      <workItem from="1743335641947" duration="6323000" />
+      <workItem from="1743512078313" duration="2374000" />
+      <workItem from="1743723362876" duration="692000" />
+      <workItem from="1743860357731" duration="4029000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />
@@ -232,7 +232,31 @@
       <option name="project" value="LOCAL" />
       <updated>1742848729649</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="feat: materials and blending">
+      <option name="closed" value="true" />
+      <created>1743343262233</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1743343262233</updated>
+    </task>
+    <task id="LOCAL-00011" summary="chore: remove dead code">
+      <option name="closed" value="true" />
+      <created>1743723407430</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1743723407430</updated>
+    </task>
+    <task id="LOCAL-00012" summary="chore: change camera starting position">
+      <option name="closed" value="true" />
+      <created>1743723431878</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1743723431878</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -257,6 +281,9 @@
     <MESSAGE value="fix: camera controller not applying changes to camera" />
     <MESSAGE value="feat: working camera" />
     <MESSAGE value="wip: model loading" />
-    <option name="LAST_COMMIT_MESSAGE" value="wip: model loading" />
+    <MESSAGE value="feat: materials and blending" />
+    <MESSAGE value="chore: remove dead code" />
+    <MESSAGE value="chore: change camera starting position" />
+    <option name="LAST_COMMIT_MESSAGE" value="chore: change camera starting position" />
   </component>
 </project>

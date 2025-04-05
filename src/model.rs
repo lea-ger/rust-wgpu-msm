@@ -123,7 +123,6 @@ impl Material {
         layout: &wgpu::BindGroupLayout,
     ) -> Option<wgpu::BindGroup> {
         let material_uniform = MaterialUniform::from_tobj_material(&self.material);
-        println!("material_uniform: {:?}", material_uniform);
         let material_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Material Buffer"),
             contents: bytemuck::cast_slice(&[material_uniform]),
