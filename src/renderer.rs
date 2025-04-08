@@ -1,17 +1,19 @@
 use crate::camera::{Camera, CameraController, CameraUniform};
 use crate::model::{load_model, Material, Mesh, Model, Vertex, TEST_INDICES, TEST_VERTICES};
-use crate::scenegraph::{GroupNode, Node, RenderNode, SceneGraph, SceneGraphIterator};
-use crate::texture;
+use crate::scenegraph::{GroupNode, Node, RenderNode, SceneGraph, SceneGraphRenderNodeIterator};
+use crate::{light, texture};
 use crate::texture::get_default_texture;
 use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use std::future::Future;
+use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
 use wgpu::util::DeviceExt;
 use wgpu::{Adapter, BindGroupLayout, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
+use crate::light::Light;
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -151,11 +153,19 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 label: Some("material_bind_group_layout"),
             });
         let scene_graph = create_scenegraph(&device, &queue, &material_bind_group_layout).await;
+        let light_bind_group_layout = scene_graph.get_light_bind_group_layout(&device);
+        let bind_group_layouts: Vec<&BindGroupLayout> = {
+            let mut layouts = vec![&camera_bind_group_layout, &material_bind_group_layout];
+            if let Some(ref light_layout) = light_bind_group_layout {
+                layouts.push(light_layout);
+            }
+            layouts
+        };
 
         let depth_texture = texture::Texture::create_depth_texture(&device, &surface_config, "depth_texture");
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&camera_bind_group_layout, &material_bind_group_layout],
+            bind_group_layouts: &bind_group_layouts,
             push_constant_ranges: &[],
         });
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -280,6 +290,20 @@ pub async fn create_scenegraph(device: &Device, queue: &Queue, material_bind_gro
         &model.await.unwrap(),
         material_bind_group_layout,
         Mat4::IDENTITY,
+    );
+    scenegraph.add_light_node(
+        None,
+        "light".to_string(),
+        device,
+        Light::new(
+            Vec3::new(0.0, 10.0, 0.0),
+            wgpu::Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 1.0,
+            },
+        ),
     );
     scenegraph
 }

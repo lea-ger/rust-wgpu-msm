@@ -1,5 +1,6 @@
-use std::ops::Range;
+use std::num::NonZeroU32;
 use bytemuck::{Pod, Zeroable};
+use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -16,7 +17,7 @@ impl LightUniform {
         }
     }
 
-    pub fn get_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    pub fn get_bind_group_layout(device: &wgpu::Device, light_count: u32) -> wgpu::BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -26,17 +27,24 @@ impl LightUniform {
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
-                count: None,
+                count: NonZeroU32::new(light_count),
             }],
             label: Some("light_bind_group_layout"),
         })
     }
 }
 
+#[derive(Debug)]
 pub struct Light {
     pos: glam::Vec3,
     color: wgpu::Color,
-    fov: f32,
-    depth: Range<f32>,
-    target_view: wgpu::TextureView,
+}
+
+impl Light {
+    pub fn new(pos: glam::Vec3, color: wgpu::Color) -> Self {
+        Self {
+            pos,
+            color,
+        }
+    }
 }

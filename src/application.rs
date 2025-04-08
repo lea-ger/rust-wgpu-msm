@@ -82,7 +82,7 @@ impl App {
 
             rpass.set_pipeline(&renderer.render_pipeline);
             rpass.set_bind_group(0, &renderer.camera_bind_group, &[]);
-            rpass.draw_scenegraph(&renderer.scene_graph, 1, &renderer.camera.eye);
+            rpass.draw_scenegraph(&renderer.scene_graph, 1, 2, &renderer.camera.eye);
         }
 
         let command_buffer = encoder.finish();
