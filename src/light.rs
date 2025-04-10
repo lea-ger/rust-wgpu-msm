@@ -1,18 +1,21 @@
 use bytemuck::{Pod, Zeroable};
 use std::num::NonZeroU32;
+use glam::Mat4;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct LightUniform {
     pos: [f32; 4],
     color: [f32; 4],
+    model_mat: [[f32; 4]; 4],
 }
 
 impl LightUniform {
-    pub fn from_light(light: &Light) -> Self {
+    pub fn from_light(light: &Light, model: Mat4) -> Self {
         Self {
             pos: [light.pos.x, light.pos.y, light.pos.z, 1.0],
             color: [light.color.r as f32, light.color.g as f32, light.color.b as f32, light.color.a as f32],
+            model_mat: model.to_cols_array_2d(),
         }
     }
 
@@ -39,7 +42,7 @@ impl LightUniform {
 
 #[derive(Debug)]
 pub struct Light {
-    pos: glam::Vec3,
+    pub pos: glam::Vec3,
     color: wgpu::Color,
 }
 

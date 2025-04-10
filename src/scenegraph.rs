@@ -1,9 +1,10 @@
+use bytemuck::{Pod, Zeroable};
 use crate::light::{Light, LightUniform};
 use crate::model;
 use crate::model::Vertex;
 use glam::{Mat4, Vec3};
 use wgpu::util::{DeviceExt, RenderEncoder};
-use wgpu::{BindGroup, BindGroupLayout, RenderPass};
+use wgpu::{BindGroup, BindGroupLayout, Buffer, Queue, RenderPass};
 
 #[derive(Debug)]
 pub struct NodeData {
@@ -47,8 +48,10 @@ impl GroupNode {
     }
 }
 
-trait Renderable {
-    fn render(&self);
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct ModelUniform {
+    view_proj: [[f32; 4]; 4],
 }
 
 #[derive(Debug)]
@@ -57,7 +60,7 @@ pub struct RenderNode {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
-    pub material_bind_group: Option<wgpu::BindGroup>,
+    pub material_bind_group: Option<BindGroup>,
     vertices: Vec<Vertex>,
 }
 
@@ -296,23 +299,30 @@ impl SceneGraph {
         None
     }
 
-    fn get_light_nodes(&self) -> Vec<&LightNode> {
-        let mut nodes = vec![];
-        let mut stack = vec![&self.root];
-        while let Some(node) = stack.pop() {
+    fn get_light_nodes(&self) -> Vec<(&LightNode, Mat4)> {
+        SceneGraphLightNodeIterator::new(self).collect::<Vec<(_, _)>>()
+        /*let mut nodes = vec![];
+        let mut stack = vec![(&self.root, Mat4::IDENTITY)];
+        while let Some((node, parent_matrix)) = stack.pop() {
             match node {
                 Node::GroupNode(group) => {
+                    let current_matrix = parent_matrix * group.node.matrix;
                     for child in &group.children {
-                        stack.push(child);
+                        stack.push((child, current_matrix));
                     }
                 }
                 Node::LightNode(light) => {
-                    nodes.push(light);
+                    let view_proj = Mat4::look_at_rh(
+                        light.light.pos,
+                        Vec3::ZERO,
+                        Vec3::Y,
+                    );
+                    nodes.push((light, view_proj));
                 }
                 _ => {}
             }
         }
-        nodes
+        nodes*/
     }
 
     fn get_light_uniforms(
@@ -320,7 +330,7 @@ impl SceneGraph {
     ) -> Vec<LightUniform> {
         let mut uniforms = vec![];
         for light in self.get_light_nodes() {
-            let uniform = LightUniform::from_light(&light.light);
+            let uniform = LightUniform::from_light(&light.0.light, light.1);
             uniforms.push(uniform);
         }
         uniforms
@@ -380,7 +390,7 @@ impl<'a> SceneGraphRenderNodeIterator<'a> {
 }
 
 impl<'a> Iterator for SceneGraphRenderNodeIterator<'a> {
-    type Item = &'a RenderNode;
+    type Item = (&'a RenderNode, Mat4);
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some((node, parent_matrix)) = self.stack.pop() {
@@ -392,7 +402,43 @@ impl<'a> Iterator for SceneGraphRenderNodeIterator<'a> {
                     }
                 }
                 Node::RenderNode(render) => {
-                    return Some(render);
+                    let current_matrix = parent_matrix * render.node.matrix;
+                    return Some((render, current_matrix));
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+}
+
+pub struct SceneGraphLightNodeIterator<'a> {
+    stack: Vec<(&'a Node, Mat4)>,
+}
+
+impl<'a> SceneGraphLightNodeIterator<'a> {
+    pub fn new(scene_graph: &'a SceneGraph) -> Self {
+        Self {
+            stack: vec![(&scene_graph.root, Mat4::IDENTITY)],
+        }
+    }
+}
+
+impl<'a> Iterator for SceneGraphLightNodeIterator<'a> {
+    type Item = (&'a LightNode, Mat4);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((node, parent_matrix)) = self.stack.pop() {
+            match node {
+                Node::GroupNode(group) => {
+                    let current_matrix = parent_matrix * group.node.matrix;
+                    for child in &group.children {
+                        self.stack.push((child, current_matrix));
+                    }
+                }
+                Node::LightNode(light) => {
+                    let current_matrix = parent_matrix * light.node.matrix;
+                    return Some((light, current_matrix));
                 }
                 _ => {}
             }
@@ -405,7 +451,9 @@ pub trait DrawScenegraph<'a> {
     fn draw_scenegraph(
         &mut self,
         scenegraph: &'a SceneGraph,
+        queue: &Queue,
         material_bind_group_index: u32,
+        model_mat_buffer: &Buffer,
         light_bind_group_index: u32,
         camera_position: &Vec3,
     );
@@ -418,54 +466,40 @@ where
     fn draw_scenegraph(
         &mut self,
         scenegraph: &'b SceneGraph,
+        queue: &Queue,
         material_bind_group_index: u32,
+        model_mat_buffer: &Buffer,
         light_bind_group_index: u32,
         camera_position: &Vec3,
     ) {
         let iterator = SceneGraphRenderNodeIterator::new(scenegraph);
-        let mut render_nodes: Vec<&RenderNode> = iterator.collect();
-        render_nodes.sort_by(|a, b| {
-            let a_distance = (camera_position
-                - Vec3::new(
-                    a.node.matrix.w_axis.x,
-                    a.node.matrix.w_axis.y,
-                    a.node.matrix.w_axis.z,
-                ))
-            .length_squared();
-            let b_distance = (camera_position
-                - Vec3::new(
-                    b.node.matrix.w_axis.x,
-                    b.node.matrix.w_axis.y,
-                    b.node.matrix.w_axis.z,
-                ))
-            .length_squared();
-            a_distance.partial_cmp(&b_distance).unwrap()
-        });
+        let mut render_nodes: Vec<(&RenderNode, Mat4)> = iterator.collect();
 
         if let Some(light_bind_group) = &scenegraph.light_bind_group {
             self.set_bind_group(light_bind_group_index, light_bind_group, &[]);
-            println!("Light bind group found");
-            println!("Light bind group: {:?}", light_bind_group);
         } else {
             println!("Light bind group not found");
         }
 
         for render_node in render_nodes {
-            self.set_vertex_buffer(0, render_node.vertex_buffer.slice(..));
+            self.set_vertex_buffer(0, render_node.0.vertex_buffer.slice(..));
             self.set_index_buffer(
-                render_node.index_buffer.slice(..),
+                render_node.0.index_buffer.slice(..),
                 wgpu::IndexFormat::Uint32,
             );
-            if let Some(material_bind_group) = &render_node.material_bind_group {
+            queue.write_buffer(model_mat_buffer, 0, bytemuck::cast_slice(&[ModelUniform {
+                view_proj: render_node.1.to_cols_array_2d(),
+            }]));
+            if let Some(material_bind_group) = &render_node.0.material_bind_group {
                 self.set_bind_group(material_bind_group_index, material_bind_group, &[]);
             } else {
                 self.set_bind_group(material_bind_group_index, None, &[]);
                 println!(
                     "Material bind group not found for {}",
-                    render_node.node.name
+                    render_node.0.node.name
                 );
             }
-            self.draw_indexed(0..render_node.num_elements, 0, 0..1);
+            self.draw_indexed(0..render_node.0.num_elements, 0, 0..1);
         }
     }
 }

@@ -7,7 +7,7 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat(wip): lights">
+    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat(wip): bind lights to shader">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/light.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
@@ -165,7 +165,7 @@
       <workItem from="1743860357731" duration="15210000" />
       <workItem from="1743937782757" duration="11740000" />
       <workItem from="1744148508728" duration="5062000" />
-      <workItem from="1744300106921" duration="10016000" />
+      <workItem from="1744300106921" duration="16417000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />
@@ -287,7 +287,15 @@
       <option name="project" value="LOCAL" />
       <updated>1744155436724</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="feat(wip): bind lights to shader">
+      <option name="closed" value="true" />
+      <created>1744312624306</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1744312624306</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -318,6 +326,7 @@
     <MESSAGE value="feat: add camera rotation" />
     <MESSAGE value="feat: add ground quad" />
     <MESSAGE value="feat(wip): lights" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat(wip): lights" />
+    <MESSAGE value="feat(wip): bind lights to shader" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat(wip): bind lights to shader" />
   </component>
 </project>
