@@ -1,6 +1,5 @@
-use std::num::NonZeroU32;
 use bytemuck::{Pod, Zeroable};
-use wgpu::util::DeviceExt;
+use std::num::NonZeroU32;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -17,13 +16,17 @@ impl LightUniform {
         }
     }
 
-    pub fn get_bind_group_layout(device: &wgpu::Device, light_count: u32) -> wgpu::BindGroupLayout {
+    pub fn get_bind_group_layout(device: &wgpu::Device, light_count: u32, supports_storage_resources: bool) -> wgpu::BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
+                    ty: if supports_storage_resources {
+                        wgpu::BufferBindingType::Storage { read_only: true }
+                    } else {
+                        wgpu::BufferBindingType::Uniform
+                    },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },

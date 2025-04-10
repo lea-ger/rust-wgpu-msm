@@ -7,7 +7,7 @@ use crate::renderer::{RenderProxy, Renderer};
 use crate::scenegraph::DrawScenegraph;
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
-use wgpu::util::RenderEncoder;
+use wgpu::util::{DeviceExt, RenderEncoder};
 use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
@@ -17,6 +17,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::WindowId,
 };
+use crate::light::LightUniform;
 use crate::texture::Texture;
 
 enum MaybeRenderer {

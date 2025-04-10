@@ -3,7 +3,7 @@ use crate::model;
 use crate::model::Vertex;
 use glam::{Mat4, Vec3};
 use wgpu::util::{DeviceExt, RenderEncoder};
-use wgpu::{BindGroupLayout, RenderPass};
+use wgpu::{BindGroup, BindGroupLayout, RenderPass};
 
 #[derive(Debug)]
 pub struct NodeData {
@@ -143,15 +143,19 @@ pub enum Node {
 pub struct SceneGraph {
     pub root: Node,
     pub light_bind_group: Option<wgpu::BindGroup>,
+    pub light_bind_group_layout: Option<wgpu::BindGroupLayout>,
     pub lights_dirty: bool,
+    pub supports_storage_resources: bool,
 }
 
 impl SceneGraph {
-    pub fn new() -> Self {
+    pub fn new(supports_storage_resources: bool) -> Self {
         Self {
             root: Node::GroupNode(GroupNode::new("root".to_string())),
             light_bind_group: None,
+            light_bind_group_layout: None,
             lights_dirty: false,
+            supports_storage_resources,
         }
     }
 
@@ -322,15 +326,15 @@ impl SceneGraph {
         uniforms
     }
 
-    pub fn get_light_bind_group_layout(
-        &self,
+    pub fn update_light_bind_group_layout(
+        &mut self,
         device: &wgpu::Device,
-    ) -> Option<BindGroupLayout> {
+    ) {
         let light_count = self.get_light_nodes().len() as u32;
         if light_count == 0 {
-            return None;
+            self.light_bind_group_layout = None;
         }
-        Some(LightUniform::get_bind_group_layout(device, light_count))
+        self.light_bind_group_layout = Some(LightUniform::get_bind_group_layout(device, light_count, self.supports_storage_resources));
     }
 
     pub fn update_light_bind_group(
@@ -341,10 +345,16 @@ impl SceneGraph {
         let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light Buffer"),
             contents: bytemuck::cast_slice(&light_uniforms),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: if self.supports_storage_resources {
+                wgpu::BufferUsages::STORAGE
+            } else {
+                wgpu::BufferUsages::UNIFORM
+            } | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
 
-        if let Some(light_bind_group_layout) = self.get_light_bind_group_layout(device) {
+        self.update_light_bind_group_layout(device);
+        if let Some(light_bind_group_layout) = &self.light_bind_group_layout {
             self.light_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &light_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
@@ -432,6 +442,14 @@ where
             a_distance.partial_cmp(&b_distance).unwrap()
         });
 
+        if let Some(light_bind_group) = &scenegraph.light_bind_group {
+            self.set_bind_group(light_bind_group_index, light_bind_group, &[]);
+            println!("Light bind group found");
+            println!("Light bind group: {:?}", light_bind_group);
+        } else {
+            println!("Light bind group not found");
+        }
+
         for render_node in render_nodes {
             self.set_vertex_buffer(0, render_node.vertex_buffer.slice(..));
             self.set_index_buffer(
@@ -448,12 +466,6 @@ where
                 );
             }
             self.draw_indexed(0..render_node.num_elements, 0, 0..1);
-        }
-
-        if let Some(light_bind_group) = &scenegraph.light_bind_group {
-            self.set_bind_group(light_bind_group_index, light_bind_group, &[]);
-        } else {
-            println!("Light bind group not found");
         }
     }
 }

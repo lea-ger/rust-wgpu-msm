@@ -21,6 +21,8 @@ struct Light {
 var<uniform> camera: Camera;
 
 @group(2) @binding(0)
+var<storage, read> s_lights: array<Light>;
+@group(2) @binding(0)
 var<uniform> u_lights: array<Light, 10>;
 
 @vertex

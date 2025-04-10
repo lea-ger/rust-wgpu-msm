@@ -1,8 +1,9 @@
 use crate::camera::{Camera, CameraController, CameraUniform};
+use crate::light::Light;
 use crate::model::{load_model, Material, Mesh, Model, Vertex, TEST_INDICES, TEST_VERTICES};
 use crate::scenegraph::{GroupNode, Node, RenderNode, SceneGraph, SceneGraphRenderNodeIterator};
-use crate::{light, texture};
 use crate::texture::get_default_texture;
+use crate::{light, texture};
 use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use std::future::Future;
@@ -10,10 +11,12 @@ use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
 use wgpu::util::DeviceExt;
-use wgpu::{Adapter, BindGroupLayout, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
+use wgpu::{
+    Adapter, BindGroupLayout, Device, Instance, Queue, RenderPipeline, Surface,
+    SurfaceConfiguration,
+};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
-use crate::light::Light;
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -45,6 +48,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
     let surface = instance
         .create_surface(window.clone())
         .unwrap_or_else(|e| throw_str(&format!("{e:#?}")));
+    let required_features = wgpu::Features::BUFFER_BINDING_ARRAY | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY;
 
     async move {
         let adapter = instance
@@ -59,7 +63,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    required_features: wgpu::Features::empty(),
+                    required_features,
                     required_limits: if cfg!(target_arch = "wasm32") {
                         wgpu::Limits::downlevel_webgl2_defaults()
                     } else {
@@ -74,10 +78,16 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
 
         let size = window.inner_size();
         let surface_config = SurfaceConfiguration {
-            ..surface.get_default_config(&adapter, size.width, size.height)
+            ..surface
+                .get_default_config(&adapter, size.width, size.height)
                 .unwrap_throw()
         };
 
+        let supports_storage_resources = adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(wgpu::DownlevelFlags::VERTEX_STORAGE)
+            && device.limits().max_storage_buffers_per_shader_stage > 0;
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -85,7 +95,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
         }
 
         let camera = Camera {
-            eye: Vec3::new(0.0, 0.0, 50.0),
+            eye: Vec3::new(0.0, 1.0, 50.0),
             target: Vec3::ZERO,
             up: Vec3::Y,
             aspect: size.width as f32 / size.height as f32,
@@ -103,12 +113,10 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
         });
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_buffer.as_entire_binding(),
-                }
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
             label: Some("camera_bind_group"),
         });
 
@@ -152,8 +160,16 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 ],
                 label: Some("material_bind_group_layout"),
             });
-        let scene_graph = create_scenegraph(&device, &queue, &material_bind_group_layout).await;
-        let light_bind_group_layout = scene_graph.get_light_bind_group_layout(&device);
+
+        let scene_graph = create_scenegraph(
+            &device,
+            &queue,
+            &material_bind_group_layout,
+            supports_storage_resources,
+        )
+        .await;
+
+        let light_bind_group_layout = &scene_graph.light_bind_group_layout;
         let bind_group_layouts: Vec<&BindGroupLayout> = {
             let mut layouts = vec![&camera_bind_group_layout, &material_bind_group_layout];
             if let Some(ref light_layout) = light_bind_group_layout {
@@ -162,7 +178,10 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             layouts
         };
 
-        let depth_texture = texture::Texture::create_depth_texture(&device, &surface_config, "depth_texture");
+        println!("layouts: {:?}", bind_group_layouts.len());
+
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &surface_config, "depth_texture");
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &bind_group_layouts,
@@ -243,19 +262,40 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
     }
 }
 
-pub async fn create_scenegraph(device: &Device, queue: &Queue, material_bind_group_layout: &BindGroupLayout) -> SceneGraph {
-    let mut scenegraph = SceneGraph::new();
+pub async fn create_scenegraph(
+    device: &Device,
+    queue: &Queue,
+    material_bind_group_layout: &BindGroupLayout,
+    supports_storage_resources: bool,
+) -> SceneGraph {
+    let mut scenegraph = SceneGraph::new(supports_storage_resources);
 
     let ground_vertices = [
-        Vertex { tex_coords: [-1.0, -1.0], pos: [-50.0, 0.0, -50.0], normal: [0.0, 1.0, 0.0] },
-        Vertex { tex_coords: [-1.0, -1.0], pos: [ 50.0, 0.0, -50.0], normal: [0.0, 1.0, 0.0] },
-        Vertex { tex_coords: [-1.0, -1.0], pos: [ 50.0, 0.0,  50.0], normal: [0.0, 1.0, 0.0] },
-        Vertex { tex_coords: [-1.0, -1.0], pos: [-50.0, 0.0,  50.0], normal: [0.0, 1.0, 0.0] },
+        Vertex {
+            tex_coords: [-1.0, -1.0],
+            pos: [-50.0, 0.0, -50.0],
+            normal: [0.0, 1.0, 0.0],
+        },
+        Vertex {
+            tex_coords: [-1.0, -1.0],
+            pos: [50.0, 0.0, -50.0],
+            normal: [0.0, 1.0, 0.0],
+        },
+        Vertex {
+            tex_coords: [-1.0, -1.0],
+            pos: [50.0, 0.0, 50.0],
+            normal: [0.0, 1.0, 0.0],
+        },
+        Vertex {
+            tex_coords: [-1.0, -1.0],
+            pos: [-50.0, 0.0, 50.0],
+            normal: [0.0, 1.0, 0.0],
+        },
     ];
     let ground_indices = [0, 1, 2, 0, 2, 3];
-    let default_texture = texture::Texture::from_image(device, queue, &get_default_texture(), Some("ground")).unwrap_or_else(
-        |e| throw_str(&format!("{e:#?}"))
-    );
+    let default_texture =
+        texture::Texture::from_image(device, queue, &get_default_texture(), Some("ground"))
+            .unwrap_or_else(|e| throw_str(&format!("{e:#?}")));
     let ground = Model {
         meshes: vec![Mesh {
             name: "ground".to_string(),
@@ -275,14 +315,16 @@ pub async fn create_scenegraph(device: &Device, queue: &Queue, material_bind_gro
             },
         }],
     };
-    scenegraph.add_model_node(None, "ground".to_string(), device, &ground, material_bind_group_layout, Mat4::IDENTITY);
-
-    let model = load_model(
-        "assets/All_Files/Example/OBJ",
-        "Example.obj",
+    scenegraph.add_model_node(
+        None,
+        "ground".to_string(),
         device,
-        queue,
+        &ground,
+        material_bind_group_layout,
+        Mat4::IDENTITY,
     );
+
+    let model = load_model("assets/All_Files/Example/OBJ", "Example.obj", device, queue);
     scenegraph.add_model_node(
         None,
         "house".to_string(),

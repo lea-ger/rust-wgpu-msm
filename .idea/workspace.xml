@@ -7,14 +7,16 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat: add ground quad">
-      <change afterPath="$PROJECT_DIR$/msm-demo.exe" afterDir="false" />
+    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat(wip): lights">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/light.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/scenegraph.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scenegraph.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
+    </list>
+    <list id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="">
+      <change afterPath="$PROJECT_DIR$/msm-demo.exe" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -134,6 +136,7 @@
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="" />
+      <changelist id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="" />
       <created>1738866348429</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
@@ -161,7 +164,8 @@
       <workItem from="1743723362876" duration="692000" />
       <workItem from="1743860357731" duration="15210000" />
       <workItem from="1743937782757" duration="11740000" />
-      <workItem from="1744148508728" duration="4743000" />
+      <workItem from="1744148508728" duration="5062000" />
+      <workItem from="1744300106921" duration="10016000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />
@@ -275,7 +279,15 @@
       <option name="project" value="LOCAL" />
       <updated>1743893549743</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="feat(wip): lights">
+      <option name="closed" value="true" />
+      <created>1744155436724</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1744155436724</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -305,6 +317,7 @@
     <MESSAGE value="chore: change camera starting position" />
     <MESSAGE value="feat: add camera rotation" />
     <MESSAGE value="feat: add ground quad" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: add ground quad" />
+    <MESSAGE value="feat(wip): lights" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat(wip): lights" />
   </component>
 </project>
