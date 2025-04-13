@@ -81,13 +81,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         );
     }
     var light_color: vec3<f32> = vec3<f32>(0.3, 0.3, 0.3);
-    for (var i = 0u; i < arrayLength(u_lights); i += 1u) {
+    for (var i = 0u; i < 3; i += 1u) {
         let light = s_lights[i];
         let light_world_position = light.model * vec4<f32>(light.position, 1.0);
-        /*let shadow = fetch_shadow(i, light.proj * vertex.world_position);*/
         let light_dir = normalize(light_world_position.xyz - in.out_position.xyz);
+
         let diffuse = max(0.0, dot(normal, light_dir));
-        light_color += diffuse * light.color.xyz;
+
+        let view_dir = normalize(camera.position.xyz - in.out_position.xyz);
+        let r = normalize(light_dir + view_dir);
+        let specular = pow(max(0.0, dot(normal, r)), material.shininess);
+
+        light_color += diffuse * light.color.xyz + specular * material.specular.xyz;
     }
 
     return vec4<f32>(light_color, 1.0) * material_color;
@@ -108,13 +113,18 @@ fn fs_main_without_storage(in: VertexOutput) -> @location(0) vec4<f32> {
             );
         }
         var light_color: vec3<f32> = vec3<f32>(0.3, 0.3, 0.3);
-        for (var i = 0u; i < arrayLength(u_lights); i += 1u) {
+        for (var i = 0u; i < 3; i += 1u) {
             let light = u_lights[i];
             let light_world_position = light.model * vec4<f32>(light.position, 1.0);
-            /*let shadow = fetch_shadow(i, light.proj * vertex.world_position);*/
             let light_dir = normalize(light_world_position.xyz - in.out_position.xyz);
+
             let diffuse = max(0.0, dot(normal, light_dir));
-            light_color += diffuse * light.color.xyz;
+
+            let view_dir = normalize(camera.position.xyz - in.out_position.xyz);
+            let r = normalize(light_dir + view_dir);
+            let specular = pow(max(0.0, dot(normal, r)), material.shininess);
+
+            light_color += diffuse * light.color.xyz + specular * material.specular.xyz;
         }
 
         return vec4<f32>(light_color, 1.0) * material_color;

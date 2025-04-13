@@ -74,7 +74,7 @@ impl App {
                     view: &renderer.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
+                        store: wgpu::StoreOp::Discard,
                     }),
                     stencil_ops: None,
                 }),
@@ -83,8 +83,8 @@ impl App {
 
             rpass.set_pipeline(&renderer.render_pipeline);
             rpass.set_bind_group(0, &renderer.camera_bind_group, &[]);
-            rpass.draw_scenegraph(&renderer.scene_graph, &renderer.queue, 1, &renderer.model_mat_buffer, 3, &renderer.camera.eye);
-            rpass.set_bind_group(2, &renderer.model_mat_bind_group, &[]);
+            rpass.set_bind_group(2, &renderer.model_matrix_bind_group, &[]);
+            rpass.draw_scenegraph(&renderer.scene_graph, &renderer.queue, 1, &renderer.model_matrix_buffer, 3, &renderer.camera.eye);
         }
 
         let command_buffer = encoder.finish();

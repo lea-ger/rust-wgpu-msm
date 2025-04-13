@@ -10,10 +10,9 @@
     <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat(wip): bind lights to shader">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/light.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/scenegraph.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scenegraph.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/texture.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/texture.rs" afterDir="false" />
     </list>
     <list id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="">
       <change afterPath="$PROJECT_DIR$/msm-demo.exe" afterDir="false" />
@@ -166,6 +165,7 @@
       <workItem from="1743937782757" duration="11740000" />
       <workItem from="1744148508728" duration="5062000" />
       <workItem from="1744300106921" duration="16417000" />
+      <workItem from="1744541017111" duration="9105000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />

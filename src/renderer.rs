@@ -161,32 +161,32 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 label: Some("material_bind_group_layout"),
             });
 
-        let model_mat_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let model_matrix_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
                 count: None,
             }],
-            label: Some("model_mat_bind_group_layout"),
+            label: Some("model_matrix_bind_group_layout"),
         });
-        let model_mat_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Model Mat Buffer"),
+        let model_matrix_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Model Matrix Buffer"),
             size: size_of::<ModelUniform>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let model_mat_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &model_mat_bind_group_layout,
+        let model_matrix_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &model_matrix_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: model_mat_buffer.as_entire_binding(),
+                resource: model_matrix_buffer.as_entire_binding(),
             }],
-            label: Some("model_mat_bind_group"),
+            label: Some("model_matrix_bind_group"),
         });
 
         let scene_graph = create_scenegraph(
@@ -199,7 +199,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
 
         let light_bind_group_layout = &scene_graph.light_bind_group_layout;
         let bind_group_layouts: Vec<&BindGroupLayout> = {
-            let mut layouts = vec![&camera_bind_group_layout, &material_bind_group_layout, &model_mat_bind_group_layout];
+            let mut layouts = vec![&camera_bind_group_layout, &material_bind_group_layout, &model_matrix_bind_group_layout];
             if let Some(ref light_layout) = light_bind_group_layout {
                 layouts.push(light_layout);
             }
@@ -290,8 +290,8 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             camera_uniform,
             scene_graph,
             depth_texture,
-            model_mat_buffer,
-            model_mat_bind_group
+            model_matrix_buffer,
+            model_matrix_bind_group
         }
     }
 }
@@ -372,7 +372,7 @@ pub async fn create_scenegraph(
         "light".to_string(),
         device,
         Light::new(
-            Vec3::new(0.0, 10.0, 0.0),
+            Vec3::new(10.0, 5.0, 0.0),
             wgpu::Color {
                 r: 1.0,
                 g: 1.0,
@@ -408,8 +408,8 @@ pub struct Renderer {
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
     pub depth_texture: texture::Texture,
-    pub model_mat_buffer: wgpu::Buffer,
-    pub model_mat_bind_group: wgpu::BindGroup,
+    pub model_matrix_buffer: wgpu::Buffer,
+    pub model_matrix_bind_group: wgpu::BindGroup,
 }
 
 impl Renderer {
