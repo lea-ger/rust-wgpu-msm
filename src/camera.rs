@@ -107,6 +107,8 @@ pub struct CameraController {
     is_left_pressed: bool,
     is_right_pressed: bool,
     is_mouse_pressed: bool,
+    is_up_pressed: bool,
+    is_down_pressed: bool,
     delta_x: f64,
     delta_y: f64,
     last_mouse_position: Option<(f64, f64)>,
@@ -122,9 +124,11 @@ impl CameraController {
             is_left_pressed: false,
             is_right_pressed: false,
             is_mouse_pressed: false,
-            last_mouse_position: None,
+            is_up_pressed: false,
+            is_down_pressed: false,
             delta_x: 0.0,
             delta_y: 0.0,
+            last_mouse_position: None,
         }
     }
 
@@ -157,6 +161,14 @@ impl CameraController {
                         self.is_right_pressed = is_pressed;
                         true
                     }
+                    KeyCode::Space => {
+                        self.is_up_pressed = is_pressed;
+                        true
+                    }
+                    KeyCode::ShiftLeft | KeyCode::ShiftRight => {
+                        self.is_down_pressed = is_pressed;
+                        true
+                    }
                     _ => false,
                 }
             }
@@ -184,23 +196,32 @@ impl CameraController {
     }
 
     pub fn update_camera(&self, camera: &mut Camera) {
-        let forward = camera.target - camera.eye;
-        let forward_norm = forward.normalize();
+        let forward = (camera.target - camera.eye).normalize();
+        let right = forward.cross(camera.up).normalize();
+        let up = camera.up.normalize();
 
         if self.is_forward_pressed {
-            camera.move_by(forward_norm * self.speed);
+            camera.move_by(forward * self.speed);
         }
         if self.is_backward_pressed {
-            camera.move_by(-forward_norm * self.speed);
+            camera.move_by(-forward * self.speed);
         }
-
-        let right = forward_norm.cross(camera.up);
-
         if self.is_right_pressed {
             camera.move_by(right * self.speed);
         }
         if self.is_left_pressed {
             camera.move_by(-right * self.speed);
+        }
+        if self.is_up_pressed {
+            camera.move_by(up * self.speed);
+        }
+        if self.is_down_pressed {
+            camera.move_by(-up * self.speed);
+        }
+
+        // Verhindere, dass die Kamera unter den Boden geht
+        if camera.eye.y <= 0.0 {
+            camera.eye.y = 0.1;
         }
 
         if self.is_mouse_pressed {
@@ -208,10 +229,11 @@ impl CameraController {
             let delta_y = self.delta_y as f32 * self.sensitivity;
 
             let rotation_x = Mat3::from_rotation_y(delta_x.to_radians());
-            let rotation_y = Mat3::from_axis_angle(right, delta_y.to_radians());
+            let rotation_y = Mat3::from_axis_angle(right, -delta_y.to_radians());
 
-            let new_eye = rotation_y * rotation_x * (camera.eye - camera.get_focal_point()) + camera.get_focal_point();
-            camera.eye = new_eye;
+            let new_forward = rotation_y * rotation_x * forward;
+            camera.target = camera.eye + new_forward;
+            camera.up = rotation_y * rotation_x * camera.up;
         }
     }
 }
