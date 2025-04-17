@@ -448,14 +448,26 @@ impl<'a> Iterator for SceneGraphLightNodeIterator<'a> {
 }
 
 pub trait DrawScenegraph<'a> {
+    fn set_lights_bind_group(
+        &mut self,
+        scenegraph: &'a SceneGraph,
+        light_bind_group_index: u32,
+    );
+
     fn draw_scenegraph(
         &mut self,
         scenegraph: &'a SceneGraph,
         queue: &Queue,
         material_bind_group_index: u32,
         model_mat_buffer: &Buffer,
-        light_bind_group_index: u32,
         camera_position: &Vec3,
+    );
+
+    fn draw_scenegraph_vertices(
+        &mut self,
+        scenegraph: &'a SceneGraph,
+        queue: &Queue,
+        model_mat_buffer: &Buffer,
     );
 }
 
@@ -463,23 +475,24 @@ impl<'a, 'b> DrawScenegraph<'b> for RenderPass<'a>
 where
     'b: 'a,
 {
+    fn set_lights_bind_group(&mut self, scenegraph: &'b SceneGraph, light_bind_group_index: u32) {
+        if let Some(light_bind_group) = &scenegraph.light_bind_group {
+            self.set_bind_group(light_bind_group_index, light_bind_group, &[]);
+        } else {
+            println!("Light bind group not found");
+        }
+    }
+
     fn draw_scenegraph(
         &mut self,
         scenegraph: &'b SceneGraph,
         queue: &Queue,
         material_bind_group_index: u32,
         model_mat_buffer: &Buffer,
-        light_bind_group_index: u32,
         camera_position: &Vec3,
     ) {
         let iterator = SceneGraphRenderNodeIterator::new(scenegraph);
         let mut render_nodes: Vec<(&RenderNode, Mat4)> = iterator.collect();
-
-        if let Some(light_bind_group) = &scenegraph.light_bind_group {
-            self.set_bind_group(light_bind_group_index, light_bind_group, &[]);
-        } else {
-            println!("Light bind group not found");
-        }
 
         for render_node in render_nodes {
             self.set_vertex_buffer(0, render_node.0.vertex_buffer.slice(..));
@@ -499,6 +512,28 @@ where
                     render_node.0.node.name
                 );
             }
+            self.draw_indexed(0..render_node.0.num_elements, 0, 0..1);
+        }
+    }
+
+    fn draw_scenegraph_vertices(
+        &mut self,
+        scenegraph: &'b SceneGraph,
+        queue: &Queue,
+        model_mat_buffer: &Buffer,
+    ) {
+        let iterator = SceneGraphRenderNodeIterator::new(scenegraph);
+        let mut render_nodes: Vec<(&RenderNode, Mat4)> = iterator.collect();
+
+        for render_node in render_nodes {
+            self.set_vertex_buffer(0, render_node.0.vertex_buffer.slice(..));
+            self.set_index_buffer(
+                render_node.0.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint32,
+            );
+            queue.write_buffer(model_mat_buffer, 0, bytemuck::cast_slice(&[ModelUniform {
+                view_proj: render_node.1.to_cols_array_2d(),
+            }]));
             self.draw_indexed(0..render_node.0.num_elements, 0, 0..1);
         }
     }

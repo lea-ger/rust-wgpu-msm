@@ -4,9 +4,11 @@
  *
  */
 use crate::renderer::{RenderProxy, Renderer};
-use crate::scenegraph::DrawScenegraph;
+use crate::scenegraph::{DrawScenegraph, SceneGraphLightNodeIterator};
+use crate::texture::Texture;
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
+use wgpu::hal::DynCommandEncoder;
 use wgpu::util::{DeviceExt, RenderEncoder};
 use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton};
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -17,8 +19,6 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::WindowId,
 };
-use crate::light::LightUniform;
-use crate::texture::Texture;
 
 enum MaybeRenderer {
     Proxy(RenderProxy),
@@ -34,7 +34,7 @@ impl App {
     pub fn new(event_loop: &EventLoop<Renderer>) -> Self {
         Self {
             renderer: MaybeRenderer::Proxy(RenderProxy::new(event_loop.create_proxy())),
-            last_render_time: instant::Instant::now()
+            last_render_time: instant::Instant::now(),
         }
     }
 
@@ -50,10 +50,25 @@ impl App {
         let now = instant::Instant::now();
         let dt = now - self.last_render_time;
         self.last_render_time = now;
-        renderer.camera_controller.update_camera(&mut renderer.camera);
-        renderer.camera_uniform.update(&renderer.camera);
-        renderer.queue.write_buffer(&renderer.camera_buffer, 0, bytemuck::cast_slice(&[renderer.camera_uniform]));
 
+        renderer
+            .camera_state
+            .camera_controller
+            .update_camera(&mut renderer.camera_state.camera);
+        renderer
+            .camera_state
+            .camera_uniform
+            .update(&renderer.camera_state.camera);
+        renderer.queue.write_buffer(
+            &renderer.camera_state.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[renderer.camera_state.camera_uniform]),
+        );
+
+        // shadow pass
+        render_shadow_pass(renderer, &mut encoder);
+
+        // render pass
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -68,8 +83,7 @@ impl App {
                         }),
                         store: wgpu::StoreOp::Store,
                     },
-                },
-                )],
+                })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &renderer.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
@@ -81,10 +95,17 @@ impl App {
                 ..Default::default()
             });
 
-            rpass.set_pipeline(&renderer.render_pipeline);
-            rpass.set_bind_group(0, &renderer.camera_bind_group, &[]);
-            rpass.set_bind_group(2, &renderer.model_matrix_bind_group, &[]);
-            rpass.draw_scenegraph(&renderer.scene_graph, &renderer.queue, 1, &renderer.model_matrix_buffer, 3, &renderer.camera.eye);
+            rpass.set_pipeline(&renderer.render_pipeline.pipeline);
+            rpass.set_bind_group(0, &renderer.camera_state.camera_bind_group, &[]);
+            rpass.set_bind_group(1, &renderer.model_matrix_bind_group, &[]);
+            rpass.set_lights_bind_group(&renderer.scene_graph, 3);
+            rpass.draw_scenegraph(
+                &renderer.scene_graph,
+                &renderer.queue,
+                2,
+                &renderer.model_matrix_buffer,
+                &renderer.camera_state.camera.eye,
+            );
         }
 
         let command_buffer = encoder.finish();
@@ -101,8 +122,58 @@ impl App {
         renderer
             .surface
             .configure(&renderer.device, &renderer.surface_config);
+        renderer
+            .camera_state
+            .camera
+            .resize(size.width as f32, size.height as f32);
 
-        renderer.depth_texture = Texture::create_depth_texture(&renderer.device, &renderer.surface_config, "depth_texture");
+        renderer.depth_texture = Texture::create_depth_texture(
+            &renderer.device,
+            &renderer.surface_config,
+            "depth_texture",
+        );
+    }
+}
+
+fn render_shadow_pass(
+    renderer: &Renderer,
+    encoder: &mut wgpu::CommandEncoder,
+) {
+    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        color_attachments: &[],
+        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+            view: &renderer.depth_texture.view,
+            depth_ops: Some(wgpu::Operations {
+                load: wgpu::LoadOp::Clear(1.0),
+                store: wgpu::StoreOp::Store,
+            }),
+            stencil_ops: None,
+        }),
+        ..Default::default()
+    });
+
+    rpass.set_pipeline(&renderer.shadow_pipeline.pipeline);
+    rpass.set_bind_group(1, &renderer.model_matrix_bind_group, &[]);
+
+    let camera = &renderer.camera_state.camera;
+    let scene_graph = &renderer.scene_graph;
+
+    for light_node in SceneGraphLightNodeIterator::new(&renderer.scene_graph) {
+        let light = &light_node.0.light;
+        let mut temp_camera_uniform = light.to_camera_uniform(camera);
+        renderer.queue.write_buffer(
+            &renderer.camera_state.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[temp_camera_uniform]),
+        );
+
+        rpass.set_bind_group(0, &renderer.camera_state.camera_bind_group, &[]);
+
+        rpass.draw_scenegraph_vertices(
+            scene_graph,
+            &renderer.queue,
+            &renderer.model_matrix_buffer,
+        );
     }
 }
 
@@ -124,8 +195,7 @@ impl ApplicationHandler<Renderer> for App {
         event: DeviceEvent,
     ) {
         match event {
-            DeviceEvent::MouseMotion { delta } => {
-            },
+            DeviceEvent::MouseMotion { delta } => {}
             _ => (),
         }
     }
@@ -151,7 +221,10 @@ impl ApplicationHandler<Renderer> for App {
             } => event_loop.exit(),
             WindowEvent::KeyboardInput { .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
-                    renderer.camera_controller.process_events(&event);
+                    renderer
+                        .camera_state
+                        .camera_controller
+                        .process_events(&event);
                     self.draw();
                 }
             }
@@ -161,7 +234,10 @@ impl ApplicationHandler<Renderer> for App {
                 ..
             } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
-                    renderer.camera_controller.process_events(&event);
+                    renderer
+                        .camera_state
+                        .camera_controller
+                        .process_events(&event);
                     self.draw();
                 }
             }
@@ -171,7 +247,10 @@ impl ApplicationHandler<Renderer> for App {
                 ..
             } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
-                    renderer.camera_controller.process_events(&event);
+                    renderer
+                        .camera_state
+                        .camera_controller
+                        .process_events(&event);
                     self.draw();
                 }
             }

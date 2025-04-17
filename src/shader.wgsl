@@ -23,7 +23,7 @@ struct Model {
     model: mat4x4<f32>,
 };
 
-@group(2) @binding(0)
+@group(1) @binding(0)
 var<uniform> model: Model;
 
 @vertex
@@ -59,12 +59,25 @@ struct Material {
     dissolve: f32,
 };
 
-@group(1) @binding(0)
+@group(2) @binding(0)
 var t_diffuse: texture_2d<f32>;
-@group(1) @binding(1)
+@group(2) @binding(1)
 var s_diffuse: sampler;
-@group(1) @binding(2)
+@group(2) @binding(2)
 var<uniform> material: Material;
+
+fn phong (light: Light, normal: vec3<f32>, in: VertexOutput) -> vec3<f32> {
+    let light_world_position = light.model * vec4<f32>(light.position, 1.0);
+    let light_dir = normalize(light_world_position.xyz - in.out_position.xyz);
+
+    let diffuse = max(0.0, dot(normal, light_dir));
+
+    let view_dir = normalize(camera.position.xyz - in.out_position.xyz);
+    let reflect_dir  = reflect(-light_dir, in.world_normal);
+    let specular = pow(max(0.0, dot(normal, reflect_dir)), (10 * material.shininess));
+
+    return diffuse * light.color.xyz + specular * material.specular.xyz;
+}
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
@@ -83,16 +96,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var light_color: vec3<f32> = vec3<f32>(0.3, 0.3, 0.3);
     for (var i = 0u; i < 3; i += 1u) {
         let light = s_lights[i];
-        let light_world_position = light.model * vec4<f32>(light.position, 1.0);
-        let light_dir = normalize(light_world_position.xyz - in.out_position.xyz);
 
-        let diffuse = max(0.0, dot(normal, light_dir));
-
-        let view_dir = normalize(camera.position.xyz - in.out_position.xyz);
-        let r = normalize(light_dir + view_dir);
-        let specular = pow(max(0.0, dot(normal, r)), material.shininess);
-
-        light_color += diffuse * light.color.xyz + specular * material.specular.xyz;
+        light_color += phong(light, normal, in);
     }
 
     return vec4<f32>(light_color, 1.0) * material_color;
@@ -115,16 +120,8 @@ fn fs_main_without_storage(in: VertexOutput) -> @location(0) vec4<f32> {
         var light_color: vec3<f32> = vec3<f32>(0.3, 0.3, 0.3);
         for (var i = 0u; i < 3; i += 1u) {
             let light = u_lights[i];
-            let light_world_position = light.model * vec4<f32>(light.position, 1.0);
-            let light_dir = normalize(light_world_position.xyz - in.out_position.xyz);
 
-            let diffuse = max(0.0, dot(normal, light_dir));
-
-            let view_dir = normalize(camera.position.xyz - in.out_position.xyz);
-            let r = normalize(light_dir + view_dir);
-            let specular = pow(max(0.0, dot(normal, r)), material.shininess);
-
-            light_color += diffuse * light.color.xyz + specular * material.specular.xyz;
+            light_color += phong(light, normal, in);
         }
 
         return vec4<f32>(light_color, 1.0) * material_color;
