@@ -6,10 +6,11 @@
 use crate::renderer::{RenderProxy, Renderer};
 use crate::scenegraph::{DrawScenegraph, SceneGraphLightNodeIterator};
 use crate::texture::Texture;
+use std::iter;
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
 use wgpu::hal::DynCommandEncoder;
-use wgpu::util::{DeviceExt, RenderEncoder};
+use wgpu::util::RenderEncoder;
 use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
@@ -51,6 +52,9 @@ impl App {
         let dt = now - self.last_render_time;
         self.last_render_time = now;
 
+        // shadow pass
+        render_shadow_pass(renderer, &mut encoder);
+
         renderer
             .camera_state
             .camera_controller
@@ -65,10 +69,7 @@ impl App {
             bytemuck::cast_slice(&[renderer.camera_state.camera_uniform]),
         );
 
-        // shadow pass
-        render_shadow_pass(renderer, &mut encoder);
-
-        // render pass
+        // forward pass
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -98,7 +99,7 @@ impl App {
             rpass.set_pipeline(&renderer.render_pipeline.pipeline);
             rpass.set_bind_group(0, &renderer.camera_state.camera_bind_group, &[]);
             rpass.set_bind_group(1, &renderer.model_matrix_bind_group, &[]);
-            rpass.set_lights_bind_group(&renderer.scene_graph, 3);
+            rpass.set_bind_group(3, &renderer.scene_graph.light_bind_group, &[]);
             rpass.draw_scenegraph(
                 &renderer.scene_graph,
                 &renderer.queue,
@@ -108,9 +109,10 @@ impl App {
             );
         }
 
-        let command_buffer = encoder.finish();
-        renderer.queue.submit([command_buffer]);
+        renderer.queue.submit(iter::once(encoder.finish()));
         frame.present();
+
+        renderer.scene_graph.on_frame_update();
     }
 
     fn resized(&mut self, size: PhysicalSize<u32>) {
@@ -135,45 +137,37 @@ impl App {
     }
 }
 
-fn render_shadow_pass(
-    renderer: &Renderer,
-    encoder: &mut wgpu::CommandEncoder,
-) {
-    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        color_attachments: &[],
-        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-            view: &renderer.depth_texture.view,
-            depth_ops: Some(wgpu::Operations {
-                load: wgpu::LoadOp::Clear(1.0),
-                store: wgpu::StoreOp::Store,
-            }),
-            stencil_ops: None,
-        }),
-        ..Default::default()
-    });
-
-    rpass.set_pipeline(&renderer.shadow_pipeline.pipeline);
-    rpass.set_bind_group(1, &renderer.model_matrix_bind_group, &[]);
-
-    let camera = &renderer.camera_state.camera;
+fn render_shadow_pass(renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
     let scene_graph = &renderer.scene_graph;
 
     for light_node in SceneGraphLightNodeIterator::new(&renderer.scene_graph) {
         let light = &light_node.0.light;
-        let mut temp_camera_uniform = light.to_camera_uniform(camera);
+        let model = light_node.1;
+        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &light.target_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            ..Default::default()
+        });
+
+        rpass.set_pipeline(&renderer.shadow_pipeline.pipeline);
+        rpass.set_bind_group(1, &renderer.model_matrix_bind_group, &[]);
+
+        let mut temp_camera_uniform = light.to_camera_uniform(model);
         renderer.queue.write_buffer(
             &renderer.camera_state.camera_buffer,
             0,
             bytemuck::cast_slice(&[temp_camera_uniform]),
         );
-
         rpass.set_bind_group(0, &renderer.camera_state.camera_bind_group, &[]);
 
-        rpass.draw_scenegraph_vertices(
-            scene_graph,
-            &renderer.queue,
-            &renderer.model_matrix_buffer,
-        );
+        rpass.draw_scenegraph_vertices(scene_graph, &renderer.queue, &renderer.model_matrix_buffer);
     }
 }
 
@@ -190,8 +184,8 @@ impl ApplicationHandler<Renderer> for App {
 
     fn device_event(
         &mut self,
-        event_loop: &ActiveEventLoop,
-        device_id: DeviceId,
+        _: &ActiveEventLoop,
+        _: DeviceId,
         event: DeviceEvent,
     ) {
         match event {
@@ -230,7 +224,6 @@ impl ApplicationHandler<Renderer> for App {
             }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
-                state,
                 ..
             } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
@@ -242,8 +235,6 @@ impl ApplicationHandler<Renderer> for App {
                 }
             }
             WindowEvent::CursorMoved {
-                position,
-                device_id,
                 ..
             } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {

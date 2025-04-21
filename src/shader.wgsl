@@ -34,7 +34,7 @@ fn vs_main(
     let world_position = world * vec4<f32>(in.position, 1.0);
 
     return VertexOutput(
-        model.model * camera.view_proj * vec4<f32>(in.position, 1.0),
+        camera.view_proj * world_position,
         in.tex_coords,
         world_position,
         mat3x3<f32>(world[0].xyz, world[1].xyz, world[2].xyz) * in.normal,
@@ -45,11 +45,29 @@ struct Light {
     position: vec3<f32>,
     color: vec3<f32>,
     model: mat4x4<f32>,
+    view_proj: mat4x4<f32>,
 }
 @group(3) @binding(0)
 var<storage, read> s_lights: array<Light>;
 @group(3) @binding(0)
 var<uniform> u_lights: array<Light, 10>;
+@group(3) @binding(1) var t_shadow: texture_depth_2d_array;
+@group(3) @binding(2) var sampler_shadow: sampler_comparison;
+
+fn fetch_shadow(light_id: u32, ls_pos: vec4<f32>) -> f32 {
+    // compensate for the Y-flip difference between the NDC and texture coordinates
+    let flip_correction = vec2<f32>(0.5, -0.5);
+    // compute texture coordinates for shadow lookup
+    let proj_correction = 1.0 / ls_pos.w;
+    let light_local = ls_pos.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);
+    // do the lookup, using HW PCF and comparison
+    let closest_depth = textureSampleCompareLevel(t_shadow, sampler_shadow, light_local, i32(light_id), ls_pos.z * proj_correction);
+    // compare the depth of the fragment with the closest depth
+    if (closest_depth < ls_pos.z) {
+        return 0.0;
+    }
+    return 1.0;
+}
 
 struct Material {
     ambient: vec4<f32>,
@@ -66,7 +84,7 @@ var s_diffuse: sampler;
 @group(2) @binding(2)
 var<uniform> material: Material;
 
-fn phong (light: Light, normal: vec3<f32>, in: VertexOutput) -> vec3<f32> {
+fn phong (light: Light, normal: vec3<f32>, in: VertexOutput, shadow: f32) -> vec3<f32> {
     let light_world_position = light.model * vec4<f32>(light.position, 1.0);
     let light_dir = normalize(light_world_position.xyz - in.out_position.xyz);
 
@@ -76,7 +94,7 @@ fn phong (light: Light, normal: vec3<f32>, in: VertexOutput) -> vec3<f32> {
     let reflect_dir  = reflect(-light_dir, in.world_normal);
     let specular = pow(max(0.0, dot(normal, reflect_dir)), (10 * material.shininess));
 
-    return diffuse * light.color.xyz + specular * material.specular.xyz;
+    return (diffuse * light.color.xyz + specular * material.specular.xyz) * shadow;
 }
 
 @fragment
@@ -96,8 +114,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var light_color: vec3<f32> = vec3<f32>(0.3, 0.3, 0.3);
     for (var i = 0u; i < 3; i += 1u) {
         let light = s_lights[i];
+        let shadow = fetch_shadow(i, light.view_proj * in.world_position);
 
-        light_color += phong(light, normal, in);
+        light_color += phong(light, normal, in, shadow);
     }
 
     return vec4<f32>(light_color, 1.0) * material_color;
@@ -120,8 +139,9 @@ fn fs_main_without_storage(in: VertexOutput) -> @location(0) vec4<f32> {
         var light_color: vec3<f32> = vec3<f32>(0.3, 0.3, 0.3);
         for (var i = 0u; i < 3; i += 1u) {
             let light = u_lights[i];
+            let shadow = fetch_shadow(i, light.view_proj * in.world_position);
 
-            light_color += phong(light, normal, in);
+            light_color += phong(light, normal, in, shadow);
         }
 
         return vec4<f32>(light_color, 1.0) * material_color;

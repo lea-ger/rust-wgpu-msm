@@ -31,7 +31,6 @@ impl CameraUniform {
     pub fn update(&mut self, camera: &Camera) {
         self.view_proj = camera.calculate_matrix().to_cols_array_2d();
         self.position = [camera.eye.x, camera.eye.y, camera.eye.z, 1.0];
-        println!("{:?}", self.view_proj);
     }
 
     pub fn get_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {

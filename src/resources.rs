@@ -31,7 +31,6 @@ pub async fn load_string(file_name: &str) -> anyhow::Result<String> {
             let dir = env::current_dir()?;
             let path = std::path::Path::new(&dir)
                 .join(file_name);
-            println!("{}", path.display());
             let txt = std::fs::read_to_string(path)?;
         }
     }
@@ -52,7 +51,6 @@ pub async fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
             let dir = env::current_dir()?;
             let path = std::path::Path::new(&dir)
                 .join(file_name);
-            println!("{}", path.display());
             let data = std::fs::read(path)?;
         }
     }
@@ -66,7 +64,7 @@ pub async fn load_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
 ) -> anyhow::Result<texture::Texture> {
-    if (file_name.is_none()) {
+    if file_name.is_none() {
         return Err(anyhow::anyhow!("No file name provided"));
     }
     let file_name = file_name.as_ref().unwrap();

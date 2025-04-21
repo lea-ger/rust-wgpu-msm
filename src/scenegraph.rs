@@ -1,7 +1,7 @@
-use bytemuck::{Pod, Zeroable};
-use crate::light::{Light, LightUniform};
+use crate::light::{Light, LightUniform, ShadowMap};
 use crate::model;
 use crate::model::Vertex;
+use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3};
 use wgpu::util::{DeviceExt, RenderEncoder};
 use wgpu::{BindGroup, BindGroupLayout, Buffer, Queue, RenderPass};
@@ -145,20 +145,24 @@ pub enum Node {
 
 pub struct SceneGraph {
     pub root: Node,
-    pub light_bind_group: Option<wgpu::BindGroup>,
-    pub light_bind_group_layout: Option<wgpu::BindGroupLayout>,
+    pub light_bind_group: Option<BindGroup>,
+    pub light_bind_group_layout: Option<BindGroupLayout>,
     pub lights_dirty: bool,
     pub supports_storage_resources: bool,
+    pub shadow_map: ShadowMap,
+    on_frame_update_callback: Option<Box<dyn Fn(&SceneGraph)>>,
 }
 
 impl SceneGraph {
-    pub fn new(supports_storage_resources: bool) -> Self {
+    pub fn new(supports_storage_resources: bool, shadow_map: ShadowMap) -> Self {
         Self {
             root: Node::GroupNode(GroupNode::new("root".to_string())),
             light_bind_group: None,
             light_bind_group_layout: None,
             lights_dirty: false,
             supports_storage_resources,
+            shadow_map,
+            on_frame_update_callback: None,
         }
     }
 
@@ -213,7 +217,6 @@ impl SceneGraph {
             light,
         };
         self.add_child(parent, Node::LightNode(light_node));
-        self.lights_dirty = true;
         self.update_light_bind_group(device);
     }
 
@@ -301,33 +304,9 @@ impl SceneGraph {
 
     fn get_light_nodes(&self) -> Vec<(&LightNode, Mat4)> {
         SceneGraphLightNodeIterator::new(self).collect::<Vec<(_, _)>>()
-        /*let mut nodes = vec![];
-        let mut stack = vec![(&self.root, Mat4::IDENTITY)];
-        while let Some((node, parent_matrix)) = stack.pop() {
-            match node {
-                Node::GroupNode(group) => {
-                    let current_matrix = parent_matrix * group.node.matrix;
-                    for child in &group.children {
-                        stack.push((child, current_matrix));
-                    }
-                }
-                Node::LightNode(light) => {
-                    let view_proj = Mat4::look_at_rh(
-                        light.light.pos,
-                        Vec3::ZERO,
-                        Vec3::Y,
-                    );
-                    nodes.push((light, view_proj));
-                }
-                _ => {}
-            }
-        }
-        nodes*/
     }
 
-    fn get_light_uniforms(
-        &self
-    ) -> Vec<LightUniform> {
+    fn get_light_uniforms(&self) -> Vec<LightUniform> {
         let mut uniforms = vec![];
         for light in self.get_light_nodes() {
             let uniform = LightUniform::from_light(&light.0.light, light.1);
@@ -336,21 +315,20 @@ impl SceneGraph {
         uniforms
     }
 
-    pub fn update_light_bind_group_layout(
-        &mut self,
-        device: &wgpu::Device,
-    ) {
+    pub fn update_light_bind_group_layout(&mut self, device: &wgpu::Device) {
         let light_count = self.get_light_nodes().len() as u32;
         if light_count == 0 {
             self.light_bind_group_layout = None;
         }
-        self.light_bind_group_layout = Some(LightUniform::get_bind_group_layout(device, light_count, self.supports_storage_resources));
+        self.light_bind_group_layout = Some(LightUniform::get_bind_group_layout(
+            device,
+            light_count,
+            self.supports_storage_resources,
+        ));
     }
 
-    pub fn update_light_bind_group(
-        &mut self,
-        device: &wgpu::Device,
-    ) {
+    pub fn update_light_bind_group(&mut self, device: &wgpu::Device) {
+        self.lights_dirty = true;
         let light_uniforms = self.get_light_uniforms();
         let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light Buffer"),
@@ -367,12 +345,29 @@ impl SceneGraph {
         if let Some(light_bind_group_layout) = &self.light_bind_group_layout {
             self.light_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &light_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: light_buffer.as_entire_binding(),
-                }],
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: light_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&self.shadow_map.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Sampler(&self.shadow_map.sampler),
+                    },
+                ],
                 label: Some("Light Bind Group"),
             }));
+        }
+    }
+
+    pub fn on_frame_update(&mut self) {
+        self.lights_dirty = false;
+        if let Some(callback) = &self.on_frame_update_callback {
+            callback(self);
         }
     }
 }
@@ -448,12 +443,6 @@ impl<'a> Iterator for SceneGraphLightNodeIterator<'a> {
 }
 
 pub trait DrawScenegraph<'a> {
-    fn set_lights_bind_group(
-        &mut self,
-        scenegraph: &'a SceneGraph,
-        light_bind_group_index: u32,
-    );
-
     fn draw_scenegraph(
         &mut self,
         scenegraph: &'a SceneGraph,
@@ -475,14 +464,6 @@ impl<'a, 'b> DrawScenegraph<'b> for RenderPass<'a>
 where
     'b: 'a,
 {
-    fn set_lights_bind_group(&mut self, scenegraph: &'b SceneGraph, light_bind_group_index: u32) {
-        if let Some(light_bind_group) = &scenegraph.light_bind_group {
-            self.set_bind_group(light_bind_group_index, light_bind_group, &[]);
-        } else {
-            println!("Light bind group not found");
-        }
-    }
-
     fn draw_scenegraph(
         &mut self,
         scenegraph: &'b SceneGraph,
@@ -500,9 +481,13 @@ where
                 render_node.0.index_buffer.slice(..),
                 wgpu::IndexFormat::Uint32,
             );
-            queue.write_buffer(model_mat_buffer, 0, bytemuck::cast_slice(&[ModelUniform {
-                view_proj: render_node.1.to_cols_array_2d(),
-            }]));
+            queue.write_buffer(
+                model_mat_buffer,
+                0,
+                bytemuck::cast_slice(&[ModelUniform {
+                    view_proj: render_node.1.to_cols_array_2d(),
+                }]),
+            );
             if let Some(material_bind_group) = &render_node.0.material_bind_group {
                 self.set_bind_group(material_bind_group_index, material_bind_group, &[]);
             } else {
@@ -531,9 +516,13 @@ where
                 render_node.0.index_buffer.slice(..),
                 wgpu::IndexFormat::Uint32,
             );
-            queue.write_buffer(model_mat_buffer, 0, bytemuck::cast_slice(&[ModelUniform {
-                view_proj: render_node.1.to_cols_array_2d(),
-            }]));
+            queue.write_buffer(
+                model_mat_buffer,
+                0,
+                bytemuck::cast_slice(&[ModelUniform {
+                    view_proj: render_node.1.to_cols_array_2d(),
+                }]),
+            );
             self.draw_indexed(0..render_node.0.num_elements, 0, 0..1);
         }
     }

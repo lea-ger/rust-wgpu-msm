@@ -20,8 +20,6 @@ struct Model {
 var<uniform> model: Model;
 
 @vertex
-fn vs_shadow(@location(0) position: vec4<f32>) -> @builtin(position) vec4<f32> {
-    let world = model.model;
-
-    return camera.view_proj * world * vec4<f32>(position);
+fn vs_shadow(in: VertexInput) -> @builtin(position) vec4<f32> {
+    return camera.view_proj * model.model * vec4<f32>(in.position, 1.0);
 }

@@ -1,5 +1,5 @@
 use crate::camera::{Camera, CameraController, CameraUniform};
-use crate::light::Light;
+use crate::light::{Light, ShadowMap};
 use crate::model::{load_model, Material, Mesh, Model, Vertex, TEST_INDICES, TEST_VERTICES};
 use crate::scenegraph::{
     GroupNode, ModelUniform, Node, RenderNode, SceneGraph, SceneGraphRenderNodeIterator,
@@ -18,7 +18,7 @@ use wgpu::{
     SurfaceConfiguration,
 };
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
-use winit::window::Window;
+use winit::window::{Window, WindowAttributes};
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -40,6 +40,7 @@ impl Pipeline {
         shader: &wgpu::ShaderModule,
         bind_group_layouts: &[&BindGroupLayout],
         vertex_entry: &str,
+        vertex_buffer_layout: &[wgpu::VertexBufferLayout],
         fragment_entry: Option<&str>,
         color_target: &[Option<wgpu::ColorTargetState>],
         depth_format: Option<wgpu::TextureFormat>,
@@ -57,7 +58,7 @@ impl Pipeline {
                 module: shader,
                 entry_point: Some(vertex_entry),
                 compilation_options: Default::default(),
-                buffers: &[Vertex::desc()],
+                buffers: vertex_buffer_layout,
             },
             fragment: if let Some(entry) = fragment_entry {
                 Some(wgpu::FragmentState {
@@ -73,16 +74,25 @@ impl Pipeline {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: device
+                    .features()
+                    .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
+                conservative: false,
                 ..Default::default()
             },
-            depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
-                format,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
+            depth_stencil: if let Some(format) = depth_format {
+                Some(wgpu::DepthStencilState {
+                    format,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                })
+            } else {
+                None
+            },
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
@@ -123,6 +133,7 @@ pub struct CameraState {
 pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Renderer> + 'static {
     #[allow(unused_mut)]
     let mut window_attrs = Window::default_attributes();
+    window_attrs.maximized = true;
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -296,40 +307,32 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             label: Some("model_matrix_bind_group"),
         });
 
+        let shadow_map = ShadowMap::create_shadow_map(&device, 1024);
+
         let scene_graph = create_scenegraph(
             &device,
             &queue,
             &material_bind_group_layout,
             supports_storage_resources,
+            shadow_map
         )
         .await;
 
         let light_bind_group_layout = &scene_graph.light_bind_group_layout;
-        let bind_group_layouts: Vec<&BindGroupLayout> = {
-            let mut layouts = vec![
-                &camera_bind_group_layout,
-                &material_bind_group_layout,
-                &model_matrix_bind_group_layout,
-            ];
-            if let Some(ref light_layout) = light_bind_group_layout {
-                layouts.push(light_layout);
-            }
-            layouts
-        };
-
-        println!("layouts: {:?}", bind_group_layouts.len());
 
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &surface_config, "depth_texture");
+        let vertex_buffer_layout = Vertex::desc();
 
         let shadow_pipeline = Pipeline::new(
             &device,
             &shadow_shader,
             &[&camera_bind_group_layout, &model_matrix_bind_group_layout],
             "vs_shadow",
+            &[vertex_buffer_layout.clone()],
             None,
             &[None],
-            Some(texture::Texture::DEPTH_FORMAT),
+            Some(ShadowMap::DEPTH_FORMAT),
         );
 
         let render_pipeline = Pipeline::new(
@@ -342,6 +345,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 light_bind_group_layout.as_ref().unwrap(),
             ],
             "vs_main",
+            &[vertex_buffer_layout],
             Some(if supports_storage_resources {
                 "fs_main"
             } else {
@@ -357,8 +361,8 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                     },
                     alpha: wgpu::BlendComponent {
                         src_factor: wgpu::BlendFactor::One,
-                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        operation: wgpu::BlendOperation::Add,
+                        dst_factor: wgpu::BlendFactor::One,
+                        operation: wgpu::BlendOperation::Max,
                     },
                 }),
                 write_mask: wgpu::ColorWrites::ALL,
@@ -390,8 +394,21 @@ pub async fn create_scenegraph(
     queue: &Queue,
     material_bind_group_layout: &BindGroupLayout,
     supports_storage_resources: bool,
+    shadow_map: ShadowMap
 ) -> SceneGraph {
-    let mut scenegraph = SceneGraph::new(supports_storage_resources);
+    let light_sun = Light::new(
+        Vec3::new(10.0, 10.0, 0.0),
+        wgpu::Color {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
+        },
+        &shadow_map.texture,
+        0,
+    );
+
+    let mut scenegraph = SceneGraph::new(supports_storage_resources, shadow_map);
 
     let ground_vertices = [
         Vertex {
@@ -460,15 +477,7 @@ pub async fn create_scenegraph(
         None,
         "light".to_string(),
         device,
-        Light::new(
-            Vec3::new(10.0, 5.0, 0.0),
-            wgpu::Color {
-                r: 1.0,
-                g: 1.0,
-                b: 1.0,
-                a: 1.0,
-            },
-        ),
+        light_sun,
     );
     scenegraph
 }
