@@ -1,6 +1,6 @@
 use crate::camera::{Camera, CameraController, CameraUniform};
 use crate::light::{Light, ShadowMap};
-use crate::model::{load_model, Material, Mesh, Model, Vertex, TEST_INDICES, TEST_VERTICES};
+use crate::model::{load_model, Material, Mesh, Model, Vertex, CUBE_INDICES, CUBE_VERTICES};
 use crate::scenegraph::{
     GroupNode, ModelUniform, Node, RenderNode, SceneGraph, SceneGraphRenderNodeIterator,
 };
@@ -86,7 +86,7 @@ impl Pipeline {
                 Some(wgpu::DepthStencilState {
                     format,
                     depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    depth_compare: wgpu::CompareFunction::Less,
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
                 })
@@ -200,7 +200,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
         }
 
         let camera = Camera {
-            eye: Vec3::new(0.0, 1.0, 50.0),
+            eye: Vec3::new(0.0, 1.0, 30.0),
             target: Vec3::ZERO,
             up: Vec3::Y,
             aspect: size.width as f32 / size.height as f32,
@@ -307,7 +307,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             label: Some("model_matrix_bind_group"),
         });
 
-        let shadow_map = ShadowMap::create_shadow_map(&device, 1024);
+        let shadow_map = ShadowMap::create_shadow_map(&device);
 
         let scene_graph = create_scenegraph(
             &device,
@@ -396,8 +396,9 @@ pub async fn create_scenegraph(
     supports_storage_resources: bool,
     shadow_map: ShadowMap
 ) -> SceneGraph {
+    let light_pos = Vec3::new(0.0, 15.0, 20.0);
     let light_sun = Light::new(
-        Vec3::new(10.0, 10.0, 0.0),
+        light_pos,
         wgpu::Color {
             r: 1.0,
             g: 1.0,
@@ -407,6 +408,33 @@ pub async fn create_scenegraph(
         &shadow_map.texture,
         0,
     );
+    let light_cube_vertices = CUBE_VERTICES.iter().map(|vertex| {
+        Vertex {
+            tex_coords: vertex.tex_coords,
+            pos: [
+                vertex.pos[0] * 0.1,
+                vertex.pos[1] * 0.1,
+                vertex.pos[2] * 0.1,
+            ],
+            normal: vertex.normal,
+        }
+    }).collect::<Vec<_>>();
+
+    let light_sun_model = Model {
+        meshes: vec![Mesh {
+            name: "light".to_string(),
+            vertices: light_cube_vertices.to_vec(),
+            indices: CUBE_INDICES.to_vec(),
+            material: 0,
+            num_elements: CUBE_INDICES.len() as u32,
+        }],
+        materials: vec![Material::new(
+            "light",
+            Some([1.0, 1.0, 0.0]),
+            device,
+            queue,
+        )],
+    };
 
     let mut scenegraph = SceneGraph::new(supports_storage_resources, shadow_map);
 
@@ -444,16 +472,7 @@ pub async fn create_scenegraph(
             material: 0,
             num_elements: ground_indices.len() as u32,
         }],
-        materials: vec![Material {
-            name: "ground".to_string(),
-            diffuse_texture: Some(default_texture),
-            material: tobj::Material {
-                name: "ground".to_string(),
-                diffuse: Some([0.4, 0.3, 0.2]),
-                dissolve: Some(1.0),
-                ..Default::default()
-            },
-        }],
+        materials: vec![Material::new("ground", Some([0.4, 0.3, 0.2]), device, queue)],
     };
     scenegraph.add_model_node(
         None,
@@ -479,6 +498,14 @@ pub async fn create_scenegraph(
         device,
         light_sun,
     );
+    /*scenegraph.add_model_node(
+        None,
+        "light_model".to_string(),
+        device,
+        &light_sun_model,
+        material_bind_group_layout,
+        Mat4::from_translation(light_pos),
+    );*/
     scenegraph
 }
 

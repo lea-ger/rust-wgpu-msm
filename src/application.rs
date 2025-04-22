@@ -3,10 +3,10 @@
  * Reason is that it's tricky to set up a WGPU pipeline using the latest version of WGPU and Winit, especially when targeting the web.
  *
  */
+use crate::light::ShadowMap;
 use crate::renderer::{RenderProxy, Renderer};
 use crate::scenegraph::{DrawScenegraph, SceneGraphLightNodeIterator};
 use crate::texture::Texture;
-use std::iter;
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
 use wgpu::hal::DynCommandEncoder;
@@ -47,6 +47,19 @@ impl App {
         let frame = renderer.surface.get_current_texture().unwrap_throw();
         let view = frame.texture.create_view(&Default::default());
         let mut encoder = renderer.device.create_command_encoder(&Default::default());
+
+        // 1) Alignment‑Konstante holen
+        const ALIGN: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+
+        // 2) Größe des Buffers (ein Row, eine Zeile)
+        let buffer_size  = ALIGN as u64 * 1 /* height */;
+
+        let readback = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Shadow Readback"),
+            size: buffer_size,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
 
         let now = instant::Instant::now();
         let dt = now - self.last_render_time;
@@ -109,8 +122,37 @@ impl App {
             );
         }
 
-        renderer.queue.submit(iter::once(encoder.finish()));
+        encoder.copy_texture_to_buffer(
+            wgpu::ImageCopyTexture {
+                texture: &renderer.scene_graph.shadow_map.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 }, // Array‑Slice 0
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::ImageCopyBuffer {
+                buffer: &readback,
+                layout: wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(ALIGN),
+                    rows_per_image: Some(1),
+                },
+            },
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        renderer.queue.submit(Some(encoder.finish()));
         frame.present();
+        let buffer_slice = readback.slice(..);
+        buffer_slice.map_async(wgpu::MapMode::Read, |_| ());
+        renderer.device.poll(wgpu::Maintain::Wait);
+
+        let data = buffer_slice.get_mapped_range();
+        let depth_value = bytemuck::from_bytes::<f32>(&data[0..4]);
+        println!("ShadowMap[0,0] = {:?}", depth_value);
 
         renderer.scene_graph.on_frame_update();
     }
@@ -215,11 +257,13 @@ impl ApplicationHandler<Renderer> for App {
             } => event_loop.exit(),
             WindowEvent::KeyboardInput { .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
-                    renderer
+                    let state_changed = renderer
                         .camera_state
                         .camera_controller
                         .process_events(&event);
-                    self.draw();
+                    if state_changed {
+                        self.draw();
+                    }
                 }
             }
             WindowEvent::MouseInput {
@@ -227,22 +271,26 @@ impl ApplicationHandler<Renderer> for App {
                 ..
             } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
-                    renderer
+                    let state_changed = renderer
                         .camera_state
                         .camera_controller
                         .process_events(&event);
-                    self.draw();
+                    if state_changed {
+                        self.draw();
+                    }
                 }
             }
             WindowEvent::CursorMoved {
                 ..
             } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
-                    renderer
+                    let state_changed = renderer
                         .camera_state
                         .camera_controller
                         .process_events(&event);
-                    self.draw();
+                    if state_changed {
+                        self.draw();
+                    }
                 }
             }
             _ => (),

@@ -7,6 +7,7 @@ use crate::texture::get_default_texture;
 use bytemuck::{Pod, Zeroable};
 use std::io::{BufReader, Cursor};
 use std::ops::Range;
+use wasm_bindgen::throw_str;
 use wgpu::util::DeviceExt;
 use wgpu::Device;
 
@@ -44,34 +45,46 @@ impl Vertex {
     }
 }
 
-pub const TEST_VERTICES: &[Vertex] = &[
-    Vertex {
-        pos: [-0.0868241, 0.49240386, 0.0],
-        tex_coords: [0., 0.],
-        normal: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        pos: [-0.49513406, 0.06958647, 0.0],
-        tex_coords: [0., 0.],
-        normal: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        pos: [-0.21918549, -0.44939706, 0.0],
-        tex_coords: [0., 0.],
-        normal: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        pos: [0.35966998, -0.3473291, 0.0],
-        tex_coords: [0., 0.],
-        normal: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        pos: [0.44147372, 0.2347359, 0.0],
-        tex_coords: [0., 0.],
-        normal: [0.0, 1.0, 0.0],
-    },
+pub const CUBE_VERTICES: &[Vertex] = &[
+    Vertex { pos: [-1.0, -1.0,  1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0,  1.0] },
+    Vertex { pos: [ 1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, 0.0,  1.0] },
+    Vertex { pos: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, 0.0,  1.0] },
+    Vertex { pos: [-1.0,  1.0,  1.0], tex_coords: [0.0, 1.0], normal: [0.0, 0.0,  1.0] },
+
+    Vertex { pos: [-1.0, -1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 0.0, -1.0] },
+    Vertex { pos: [ 1.0, -1.0, -1.0], tex_coords: [1.0, 0.0], normal: [0.0, 0.0, -1.0] },
+    Vertex { pos: [ 1.0,  1.0, -1.0], tex_coords: [1.0, 1.0], normal: [0.0, 0.0, -1.0] },
+    Vertex { pos: [-1.0,  1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, 0.0, -1.0] },
+
+    Vertex { pos: [-1.0, -1.0, -1.0], tex_coords: [0.0, 0.0], normal: [-1.0, 0.0, 0.0] },
+    Vertex { pos: [-1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [-1.0, 0.0, 0.0] },
+    Vertex { pos: [-1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [-1.0, 0.0, 0.0] },
+    Vertex { pos: [-1.0,  1.0, -1.0], tex_coords: [0.0, 1.0], normal: [-1.0, 0.0, 0.0] },
+
+    Vertex { pos: [ 1.0, -1.0, -1.0], tex_coords: [0.0, 0.0], normal: [1.0, 0.0, 0.0] },
+    Vertex { pos: [ 1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [1.0, 0.0, 0.0] },
+    Vertex { pos: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [1.0, 0.0, 0.0] },
+    Vertex { pos: [ 1.0,  1.0, -1.0], tex_coords: [0.0, 1.0], normal: [1.0, 0.0, 0.0] },
+
+    Vertex { pos: [-1.0,  1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
+    Vertex { pos: [-1.0,  1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
+    Vertex { pos: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+    Vertex { pos: [ 1.0,  1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
+
+    Vertex { pos: [-1.0, -1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, -1.0, 0.0] },
+    Vertex { pos: [-1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, -1.0, 0.0] },
+    Vertex { pos: [ 1.0, -1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, -1.0, 0.0] },
+    Vertex { pos: [ 1.0, -1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, -1.0, 0.0] },
 ];
-pub const TEST_INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, 0];
+
+pub const CUBE_INDICES: &[u32] = &[
+    0, 1, 2, 2, 3, 0,
+    4, 5, 6, 6, 7, 4,
+    8, 9, 10, 10, 11, 8,
+    12, 13, 14, 14, 15, 12,
+    16, 17, 18, 18, 19, 16,
+    20, 21, 22, 22, 23, 20,
+];
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -117,6 +130,28 @@ pub struct Material {
 }
 
 impl Material {
+    pub fn new(
+        name: &str,
+        diffuse_color: Option<[f32; 3]>,
+        device: &Device,
+        queue: &wgpu::Queue,
+    ) -> Self {
+        let default_texture =
+            texture::Texture::from_image(device, queue, &get_default_texture(), Some("ground"))
+                .unwrap_or_else(|e| throw_str(&format!("{e:#?}")));
+
+        let material = tobj::Material {
+                name: name.to_string(),
+                diffuse: diffuse_color,
+                dissolve: Some(1.0),
+                ..Default::default()
+        };
+        Self {
+            name: name.to_string(),
+            diffuse_texture: Some(default_texture),
+            material,
+        }
+    }
     pub fn create_bind_group(
         &self,
         device: &Device,

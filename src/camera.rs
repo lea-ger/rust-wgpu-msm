@@ -174,21 +174,24 @@ impl CameraController {
             WindowEvent::MouseInput { state, button, .. } => {
                 if *button == winit::event::MouseButton::Left {
                     self.is_mouse_pressed = *state == ElementState::Pressed;
+                    return true;
                 }
-                true
+                false
             }
             WindowEvent::CursorMoved { position, .. } => {
+                let mut output = false;
                 if self.is_mouse_pressed {
                     if let Some((last_x, last_y)) = self.last_mouse_position {
                         self.delta_x = position.x - last_x;
                         self.delta_y = position.y - last_y;
                     }
+                    output = true
                 } else {
                     self.delta_x = 0.0;
                     self.delta_y = 0.0;
                 }
                 self.last_mouse_position = Some((position.x, position.y));
-                true
+                output
             }
             _ => false,
         }

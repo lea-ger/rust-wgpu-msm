@@ -511,17 +511,18 @@ where
         let mut render_nodes: Vec<(&RenderNode, Mat4)> = iterator.collect();
 
         for render_node in render_nodes {
-            self.set_vertex_buffer(0, render_node.0.vertex_buffer.slice(..));
-            self.set_index_buffer(
-                render_node.0.index_buffer.slice(..),
-                wgpu::IndexFormat::Uint32,
-            );
             queue.write_buffer(
                 model_mat_buffer,
                 0,
                 bytemuck::cast_slice(&[ModelUniform {
                     view_proj: render_node.1.to_cols_array_2d(),
                 }]),
+            );
+
+            self.set_vertex_buffer(0, render_node.0.vertex_buffer.slice(..));
+            self.set_index_buffer(
+                render_node.0.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint32,
             );
             self.draw_indexed(0..render_node.0.num_elements, 0, 0..1);
         }

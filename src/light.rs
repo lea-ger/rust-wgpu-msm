@@ -24,7 +24,7 @@ impl LightUniform {
                 light.color.a as f32,
             ],
             model_mat: model.to_cols_array_2d(),
-            view_proj: light.get_view_proj(model).to_cols_array_2d(),
+            view_proj: light.calculate_matrix(model).to_cols_array_2d(),
         }
     }
 
@@ -99,23 +99,21 @@ impl Light {
         }
     }
 
-    pub fn get_view_proj(&self, model: Mat4) -> Mat4 {
+    pub fn calculate_matrix(&self, model: Mat4) -> Mat4 {
         let pos4 = glam::Vec4::new(self.pos.x, self.pos.y, self.pos.z, 1.0);
         let position = model * pos4;
         let view = Mat4::look_at_rh(position.truncate(), Vec3::ZERO, Vec3::Y);
-        let projection = Mat4::perspective_rh(0.0f32.to_radians(), 1., 0.0, 100.0);
-        view * projection
+        let projection = Mat4::perspective_rh(60.0f32.to_radians(), 1.0, 1.0, 60.0);
+        projection * view
     }
 
     pub fn to_camera_uniform(&self, model: Mat4) -> CameraUniform {
-        let pos4 = glam::Vec4::new(self.pos.x, self.pos.y, self.pos.z, 1.0);
-        let position = model * pos4;
         CameraUniform {
-            view_proj: self.get_view_proj(model).to_cols_array_2d(),
+            view_proj: self.calculate_matrix(model).to_cols_array_2d(),
             position: [
-                position.x,
-                position.y,
-                position.z,
+                self.pos.x,
+                self.pos.y,
+                self.pos.z,
                 1.0,
             ],
         }
@@ -131,20 +129,21 @@ pub struct ShadowMap {
 impl ShadowMap {
     pub const MAX_LIGHTS: u32 = 3;
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+    pub const SHADOW_MAP_SIZE: u32 = 1024;
 
-    pub fn create_shadow_map(device: &wgpu::Device, size: u32) -> Self {
+    pub fn create_shadow_map(device: &wgpu::Device) -> Self {
         let desc = wgpu::TextureDescriptor {
             label: Some("Shadow Map"),
             size: wgpu::Extent3d {
-                width: size,
-                height: size,
+                width: Self::SHADOW_MAP_SIZE,
+                height: Self::SHADOW_MAP_SIZE,
                 depth_or_array_layers: Self::MAX_LIGHTS,
             },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         };
         let texture = device.create_texture(&desc);
