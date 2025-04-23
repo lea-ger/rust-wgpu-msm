@@ -20,6 +20,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::WindowId,
 };
+use crate::camera::CameraUniform;
 
 enum MaybeRenderer {
     Proxy(RenderProxy),
@@ -29,6 +30,7 @@ enum MaybeRenderer {
 pub struct App {
     renderer: MaybeRenderer,
     last_render_time: instant::Instant,
+    shadow_pass_debug_camera_bind_group: Option<wgpu::BindGroup>,
 }
 
 impl App {
@@ -36,6 +38,7 @@ impl App {
         Self {
             renderer: MaybeRenderer::Proxy(RenderProxy::new(event_loop.create_proxy())),
             last_render_time: instant::Instant::now(),
+            shadow_pass_debug_camera_bind_group: None,
         }
     }
 
@@ -48,25 +51,14 @@ impl App {
         let view = frame.texture.create_view(&Default::default());
         let mut encoder = renderer.device.create_command_encoder(&Default::default());
 
-        // 1) Alignment‑Konstante holen
-        const ALIGN: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-
-        // 2) Größe des Buffers (ein Row, eine Zeile)
-        let buffer_size  = ALIGN as u64 * 1 /* height */;
-
-        let readback = renderer.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Shadow Readback"),
-            size: buffer_size,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
-
         let now = instant::Instant::now();
         let dt = now - self.last_render_time;
         self.last_render_time = now;
 
         // shadow pass
-        render_shadow_pass(renderer, &mut encoder);
+        {
+            render_shadow_pass(renderer, &mut encoder);
+        }
 
         renderer
             .camera_state
@@ -122,37 +114,8 @@ impl App {
             );
         }
 
-        encoder.copy_texture_to_buffer(
-            wgpu::ImageCopyTexture {
-                texture: &renderer.scene_graph.shadow_map.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 }, // Array‑Slice 0
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::ImageCopyBuffer {
-                buffer: &readback,
-                layout: wgpu::ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(ALIGN),
-                    rows_per_image: Some(1),
-                },
-            },
-            wgpu::Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
-        );
-
         renderer.queue.submit(Some(encoder.finish()));
         frame.present();
-        let buffer_slice = readback.slice(..);
-        buffer_slice.map_async(wgpu::MapMode::Read, |_| ());
-        renderer.device.poll(wgpu::Maintain::Wait);
-
-        let data = buffer_slice.get_mapped_range();
-        let depth_value = bytemuck::from_bytes::<f32>(&data[0..4]);
-        println!("ShadowMap[0,0] = {:?}", depth_value);
 
         renderer.scene_graph.on_frame_update();
     }
@@ -201,13 +164,13 @@ fn render_shadow_pass(renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
         rpass.set_pipeline(&renderer.shadow_pipeline.pipeline);
         rpass.set_bind_group(1, &renderer.model_matrix_bind_group, &[]);
 
-        let mut temp_camera_uniform = light.to_camera_uniform(model);
+        let temp_camera_uniform = light.to_camera_uniform(model);
         renderer.queue.write_buffer(
-            &renderer.camera_state.camera_buffer,
+            &renderer.sp_camera_buffer,
             0,
             bytemuck::cast_slice(&[temp_camera_uniform]),
         );
-        rpass.set_bind_group(0, &renderer.camera_state.camera_bind_group, &[]);
+        rpass.set_bind_group(0, &renderer.sp_camera_bind_group, &[]);
 
         rpass.draw_scenegraph_vertices(scene_graph, &renderer.queue, &renderer.model_matrix_buffer);
     }

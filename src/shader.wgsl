@@ -58,7 +58,7 @@ fn fetch_shadow(light_id: u32, ls_pos: vec4<f32>) -> f32 {
         return 1.0;
     }
     // compensate for the Y-flip difference between the NDC and texture coordinates
-    let flip_correction = vec2<f32>(0.5, 0.5);
+    let flip_correction = vec2<f32>(0.5, -0.5);
     // compute texture coordinates for shadow lookup
     let proj_correction = 1.0 / ls_pos.w;
     let light_local = ls_pos.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);

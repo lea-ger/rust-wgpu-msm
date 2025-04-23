@@ -44,6 +44,7 @@ impl Pipeline {
         fragment_entry: Option<&str>,
         color_target: &[Option<wgpu::ColorTargetState>],
         depth_format: Option<wgpu::TextureFormat>,
+        depth_bias: Option<wgpu::DepthBiasState>,
     ) -> Self {
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
@@ -88,7 +89,7 @@ impl Pipeline {
                     depth_write_enabled: true,
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState::default(),
+                    bias: depth_bias.unwrap_or_default(),
                 })
             } else {
                 None
@@ -120,6 +121,8 @@ pub struct Renderer {
     pub model_matrix_buffer: wgpu::Buffer,
     pub model_matrix_bind_group: wgpu::BindGroup,
     pub camera_state: CameraState,
+    pub sp_camera_buffer: wgpu::Buffer,
+    pub sp_camera_bind_group: wgpu::BindGroup,
 }
 
 pub struct CameraState {
@@ -209,18 +212,35 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             zfar: 100.,
         };
         let camera_controller = CameraController::new(0.5, 0.1);
-        let mut camera_uniform = CameraUniform::from_camera(&camera);
+        let camera_uniform = CameraUniform::from_camera(&camera);
         let camera_bind_group_layout = CameraUniform::get_bind_group_layout(&device);
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
+            size: size_of::<CameraUniform>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         });
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: camera_buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        });
+
+        let sp_camera_bind_group_layout = CameraUniform::get_bind_group_layout(&device);
+        let sp_camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Camera Buffer"),
+            size: size_of::<CameraUniform>() as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let sp_camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &sp_camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: sp_camera_buffer.as_entire_binding(),
             }],
             label: Some("camera_bind_group"),
         });
@@ -327,12 +347,17 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
         let shadow_pipeline = Pipeline::new(
             &device,
             &shadow_shader,
-            &[&camera_bind_group_layout, &model_matrix_bind_group_layout],
+            &[&sp_camera_bind_group_layout, &model_matrix_bind_group_layout],
             "vs_shadow",
             &[vertex_buffer_layout.clone()],
             None,
             &[None],
             Some(ShadowMap::DEPTH_FORMAT),
+            Some(wgpu::DepthBiasState {
+                constant: 2,
+                slope_scale: 2.0,
+                clamp: 0.0,
+            }),
         );
 
         let render_pipeline = Pipeline::new(
@@ -368,6 +393,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 write_mask: wgpu::ColorWrites::ALL,
             })],
             Some(texture::Texture::DEPTH_FORMAT),
+            None,
         );
 
         Renderer {
@@ -385,6 +411,8 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             model_matrix_buffer,
             model_matrix_bind_group,
             camera_state,
+            sp_camera_buffer,
+            sp_camera_bind_group,
         }
     }
 }

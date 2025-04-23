@@ -78,14 +78,12 @@ pub struct Light {
     pub target_view: TextureView,
 }
 
-
 impl Light {
     pub fn new(pos: Vec3, color: wgpu::Color, shadow_texture: &Texture, light_number: u32) -> Self {
         Self {
             pos,
             color,
-            target_view: shadow_texture.create_view(
-            &wgpu::TextureViewDescriptor {
+            target_view: shadow_texture.create_view(&wgpu::TextureViewDescriptor {
                 label: Some("shadow"),
                 format: None,
                 dimension: Some(wgpu::TextureViewDimension::D2),
@@ -103,19 +101,14 @@ impl Light {
         let pos4 = glam::Vec4::new(self.pos.x, self.pos.y, self.pos.z, 1.0);
         let position = model * pos4;
         let view = Mat4::look_at_rh(position.truncate(), Vec3::ZERO, Vec3::Y);
-        let projection = Mat4::perspective_rh(60.0f32.to_radians(), 1.0, 1.0, 60.0);
+        let projection = Mat4::perspective_rh(60.0f32.to_radians(), 1.0, 10.0, 60.0);
         projection * view
     }
 
     pub fn to_camera_uniform(&self, model: Mat4) -> CameraUniform {
         CameraUniform {
             view_proj: self.calculate_matrix(model).to_cols_array_2d(),
-            position: [
-                self.pos.x,
-                self.pos.y,
-                self.pos.z,
-                1.0,
-            ],
+            position: [self.pos.x, self.pos.y, self.pos.z, 1.0],
         }
     }
 }
@@ -129,7 +122,7 @@ pub struct ShadowMap {
 impl ShadowMap {
     pub const MAX_LIGHTS: u32 = 3;
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-    pub const SHADOW_MAP_SIZE: u32 = 1024;
+    pub const SHADOW_MAP_SIZE: u32 = 2048;
 
     pub fn create_shadow_map(device: &wgpu::Device) -> Self {
         let desc = wgpu::TextureDescriptor {
@@ -143,7 +136,9 @@ impl ShadowMap {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         };
         let texture = device.create_texture(&desc);

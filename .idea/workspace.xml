@@ -4,17 +4,18 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="CargoProjects">
-    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$">
+        <enabledFeature name="default" />
+      </package>
+    </cargoProject>
   </component>
   <component name="ChangeListManager">
     <list default="true" id="92af6401-1905-416a-9c46-e17fd2921c5a" name="shadow" comment="feat(wip): shadow map">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/camera.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/camera.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/light.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/model.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/model.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/scenegraph.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scenegraph.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
     </list>
     <list id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="">
@@ -180,6 +181,9 @@
       <workItem from="1745180647890" duration="12524000" />
       <workItem from="1745234727018" duration="27517000" />
       <workItem from="1745283092584" duration="8931000" />
+      <workItem from="1745352407748" duration="871000" />
+      <workItem from="1745354303199" duration="10425000" />
+      <workItem from="1745443708040" duration="948000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />
