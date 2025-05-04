@@ -11,14 +11,16 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat: improve camera a bit">
+    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat: rotate light source for more interactivity">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/light.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/scenegraph.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scenegraph.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/shadow.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shadow.wgsl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/texture.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/texture.rs" afterDir="false" />
     </list>
-    <list id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="">
+    <list id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="chore: add built version of">
       <change afterPath="$PROJECT_DIR$/msm-demo.exe" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/no-msm-demo.exe" afterDir="false" />
     </list>
@@ -37,6 +39,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="master" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -69,7 +76,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "msm",
+    "git-widget-placeholder": "no-msm",
     "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Users/Leander/RustroverProjects/msm-demo",
     "node.js.detected.package.eslint": "true",
@@ -346,7 +353,15 @@
       <option name="project" value="LOCAL" />
       <updated>1745202467931</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="feat: rotate light source for more interactivity">
+      <option name="closed" value="true" />
+      <created>1746382307903</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1746382307903</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -381,6 +396,7 @@
     <MESSAGE value="feat: lighting" />
     <MESSAGE value="feat: improve camera a bit" />
     <MESSAGE value="feat(wip): shadow map" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat(wip): shadow map" />
+    <MESSAGE value="feat: rotate light source for more interactivity" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: rotate light source for more interactivity" />
   </component>
 </project>

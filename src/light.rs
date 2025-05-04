@@ -54,7 +54,9 @@ impl LightUniform {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Depth,
+                        sample_type: wgpu::TextureSampleType::Float {
+                            filterable: false,
+                        },
                         view_dimension: wgpu::TextureViewDimension::D2Array,
                     },
                     count: None,
@@ -62,7 +64,7 @@ impl LightUniform {
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                     count: None,
                 },
             ],
@@ -121,7 +123,7 @@ pub struct ShadowMap {
 
 impl ShadowMap {
     pub const MAX_LIGHTS: u32 = 3;
-    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba32Float;
     pub const SHADOW_MAP_SIZE: u32 = 2048;
 
     pub fn create_shadow_map(device: &wgpu::Device) -> Self {
@@ -146,10 +148,10 @@ impl ShadowMap {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
+            compare: None,
             ..Default::default()
         });
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
