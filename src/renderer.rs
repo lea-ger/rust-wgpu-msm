@@ -2,8 +2,7 @@ use crate::camera::{Camera, CameraController, CameraUniform};
 use crate::light::{Light, ShadowMap};
 use crate::model::{load_model, Material, Mesh, Model, Vertex, CUBE_INDICES, CUBE_VERTICES};
 use crate::scenegraph::{
-    GroupNode, ModelUniform, Node, RenderNode, SceneGraph, SceneGraphLightNodeIterator,
-    SceneGraphRenderNodeIterator,
+    GroupNode, ModelUniform, Node, RenderNode, SceneGraph, SceneGraphRenderNodeIterator,
 };
 use crate::texture::get_default_texture;
 use crate::{light, texture};
@@ -15,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
 use wgpu::util::DeviceExt;
 use wgpu::{
-    Adapter, BindGroupLayout, Device, Instance, MultisampleState, Queue, RenderPipeline, Surface,
+    Adapter, BindGroupLayout, Device, Instance, Queue, RenderPipeline, Surface,
     SurfaceConfiguration,
 };
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
@@ -46,7 +45,6 @@ impl Pipeline {
         color_target: &[Option<wgpu::ColorTargetState>],
         depth_format: Option<wgpu::TextureFormat>,
         depth_bias: Option<wgpu::DepthBiasState>,
-        multisample_state: Option<wgpu::MultisampleState>,
     ) -> Self {
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
@@ -96,12 +94,15 @@ impl Pipeline {
             } else {
                 None
             },
-            multisample: multisample_state.unwrap_or(MultisampleState::default()),
+            multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
         });
 
-        Self { layout, pipeline }
+        Self {
+            layout,
+            pipeline,
+        }
     }
 }
 
@@ -117,7 +118,6 @@ pub struct Renderer {
     pub shadow_pipeline: Pipeline,
     pub scene_graph: SceneGraph,
     pub depth_texture: texture::Texture,
-    pub shadow_depth_texture: texture::Texture,
     pub model_matrix_buffer: wgpu::Buffer,
     pub model_matrix_bind_group: wgpu::BindGroup,
     pub camera_state: CameraState,
@@ -334,7 +334,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             &queue,
             &material_bind_group_layout,
             supports_storage_resources,
-            shadow_map,
+            shadow_map
         )
         .await;
 
@@ -347,27 +347,17 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
         let shadow_pipeline = Pipeline::new(
             &device,
             &shadow_shader,
-            &[
-                &sp_camera_bind_group_layout,
-                &model_matrix_bind_group_layout,
-            ],
+            &[&sp_camera_bind_group_layout, &model_matrix_bind_group_layout],
             "vs_shadow",
             &[vertex_buffer_layout.clone()],
-            Some("fs_shadow"),
-            &[Some(wgpu::ColorTargetState {
-                format: ShadowMap::DEPTH_FORMAT,
-                blend: None,
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-            Some(texture::Texture::DEPTH_FORMAT),
             None,
-            None,
-        );
-        let shadow_depth_texture = texture::Texture::create_depth_texture_with_dimensions(
-            &device,
-            ShadowMap::SHADOW_MAP_SIZE,
-            ShadowMap::SHADOW_MAP_SIZE,
-            "shadow_depth_texture",
+            &[None],
+            Some(ShadowMap::DEPTH_FORMAT),
+            Some(wgpu::DepthBiasState {
+                constant: 2,
+                slope_scale: 2.0,
+                clamp: 0.0,
+            }),
         );
 
         let render_pipeline = Pipeline::new(
@@ -404,7 +394,6 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             })],
             Some(texture::Texture::DEPTH_FORMAT),
             None,
-            None,
         );
 
         Renderer {
@@ -419,7 +408,6 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             shadow_pipeline,
             scene_graph,
             depth_texture,
-            shadow_depth_texture,
             model_matrix_buffer,
             model_matrix_bind_group,
             camera_state,
@@ -434,7 +422,7 @@ pub async fn create_scenegraph(
     queue: &Queue,
     material_bind_group_layout: &BindGroupLayout,
     supports_storage_resources: bool,
-    shadow_map: ShadowMap,
+    shadow_map: ShadowMap
 ) -> SceneGraph {
     let light_pos = Vec3::new(0.0, 25.0, 30.0);
     let light_sun = Light::new(
@@ -448,9 +436,8 @@ pub async fn create_scenegraph(
         &shadow_map.texture,
         0,
     );
-    let light_cube_vertices = CUBE_VERTICES
-        .iter()
-        .map(|vertex| Vertex {
+    let light_cube_vertices = CUBE_VERTICES.iter().map(|vertex| {
+        Vertex {
             tex_coords: vertex.tex_coords,
             pos: [
                 vertex.pos[0] * 0.1,
@@ -458,8 +445,8 @@ pub async fn create_scenegraph(
                 vertex.pos[2] * 0.1,
             ],
             normal: vertex.normal,
-        })
-        .collect::<Vec<_>>();
+        }
+    }).collect::<Vec<_>>();
 
     let light_sun_model = Model {
         meshes: vec![Mesh {
@@ -469,7 +456,12 @@ pub async fn create_scenegraph(
             material: 0,
             num_elements: CUBE_INDICES.len() as u32,
         }],
-        materials: vec![Material::new("light", Some([1.0, 1.0, 0.0]), device, queue)],
+        materials: vec![Material::new(
+            "light",
+            Some([1.0, 1.0, 0.0]),
+            device,
+            queue,
+        )],
     };
 
     let mut scenegraph = SceneGraph::new(supports_storage_resources, shadow_map);
@@ -508,12 +500,7 @@ pub async fn create_scenegraph(
             material: 0,
             num_elements: ground_indices.len() as u32,
         }],
-        materials: vec![Material::new(
-            "ground",
-            Some([0.4, 0.3, 0.2]),
-            device,
-            queue,
-        )],
+        materials: vec![Material::new("ground", Some([0.4, 0.3, 0.2]), device, queue)],
     };
     scenegraph.add_model_node(
         None,

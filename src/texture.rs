@@ -17,23 +17,9 @@ impl Texture {
         config: &wgpu::SurfaceConfiguration,
         label: &str,
     ) -> Self {
-        Self::create_depth_texture_with_dimensions(
-            device,
-            config.width.max(1),
-            config.height.max(1),
-            label,
-        )
-    }
-
-    pub fn create_depth_texture_with_dimensions(
-        device: &wgpu::Device,
-        width: u32,
-        height: u32,
-        label: &str,
-    ) -> Self {
         let size = wgpu::Extent3d {
-            width,
-            height,
+            width: config.width.max(1),
+            height: config.height.max(1),
             depth_or_array_layers: 1,
         };
         let desc = wgpu::TextureDescriptor {
