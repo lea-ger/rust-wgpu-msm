@@ -3,7 +3,7 @@ use crate::model;
 use crate::model::Vertex;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3};
-use wgpu::util::{DeviceExt, RenderEncoder};
+use wgpu::util::{DeviceExt};
 use wgpu::{BindGroup, BindGroupLayout, Buffer, Queue, RenderPass};
 
 #[derive(Debug)]
@@ -221,7 +221,7 @@ impl SceneGraph {
     }
 
     fn add_child(&mut self, parent: Option<&str>, child: Node) {
-        let mut parent_node = self.find_child_mut(parent).unwrap();
+        let parent_node = self.find_child_mut(parent).unwrap();
         if let Node::GroupNode(ref mut group) = parent_node {
             group.children.push(child);
         }
@@ -477,7 +477,7 @@ where
         camera_position: &Vec3,
     ) {
         let iterator = SceneGraphRenderNodeIterator::new(scenegraph);
-        let mut render_nodes: Vec<(&RenderNode, Mat4)> = iterator.collect();
+        let render_nodes: Vec<(&RenderNode, Mat4)> = iterator.collect();
 
         for render_node in render_nodes {
             self.set_vertex_buffer(0, render_node.0.vertex_buffer.slice(..));
@@ -512,7 +512,7 @@ where
         model_mat_buffer: &Buffer,
     ) {
         let iterator = SceneGraphRenderNodeIterator::new(scenegraph);
-        let mut render_nodes: Vec<(&RenderNode, Mat4)> = iterator.collect();
+        let render_nodes: Vec<(&RenderNode, Mat4)> = iterator.collect();
 
         for render_node in render_nodes {
             queue.write_buffer(

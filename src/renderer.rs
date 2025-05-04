@@ -2,24 +2,19 @@ use crate::camera::{Camera, CameraController, CameraUniform};
 use crate::light::{Light, ShadowMap};
 use crate::model::{load_model, Material, Mesh, Model, Vertex, CUBE_INDICES, CUBE_VERTICES};
 use crate::scenegraph::{
-    GroupNode, ModelUniform, Node, RenderNode, SceneGraph, SceneGraphLightNodeIterator,
-    SceneGraphRenderNodeIterator,
+     ModelUniform, Node, SceneGraph,
 };
-use crate::texture::get_default_texture;
-use crate::{light, texture};
+use crate::texture;
 use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use std::future::Future;
-use std::num::NonZeroU32;
-use std::sync::{Arc, Mutex};
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
-use wgpu::util::DeviceExt;
 use wgpu::{
-    Adapter, BindGroupLayout, Device, Instance, MultisampleState, Queue, RenderPipeline, Surface,
+    Adapter, BindGroupLayout, Device, Instance, MultisampleState, Queue, Surface,
     SurfaceConfiguration,
 };
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
-use winit::window::{Window, WindowAttributes};
+use winit::window::{Window};
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -253,8 +248,8 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             camera_bind_group,
         };
 
-        let swapchain_capabilities = surface.get_capabilities(&adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
+        // let swapchain_capabilities = surface.get_capabilities(&adapter);
+        // let swapchain_format = swapchain_capabilities.formats[0];
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -505,9 +500,6 @@ pub async fn create_scenegraph(
         },
     ];
     let ground_indices = [0, 1, 2, 0, 2, 3];
-    let default_texture =
-        texture::Texture::from_image(device, queue, &get_default_texture(), Some("ground"))
-            .unwrap_or_else(|e| throw_str(&format!("{e:#?}")));
     let ground = Model {
         meshes: vec![Mesh {
             name: "ground".to_string(),
@@ -554,7 +546,7 @@ pub async fn create_scenegraph(
 }
 
 pub fn rotate_sun(device: &Device, scene_graph: &mut SceneGraph, time: f32) {
-    let mut pos;
+    let pos;
     {
         let node = scene_graph.find_child_mut(Some("light")).unwrap();
         let light_node = match node {

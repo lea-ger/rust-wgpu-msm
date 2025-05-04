@@ -6,7 +6,6 @@ use crate::texture;
 use crate::texture::get_default_texture;
 use bytemuck::{Pod, Zeroable};
 use std::io::{BufReader, Cursor};
-use std::ops::Range;
 use wasm_bindgen::throw_str;
 use wgpu::util::DeviceExt;
 use wgpu::Device;
@@ -300,9 +299,4 @@ pub async fn load_model(
         .collect::<Vec<_>>();
 
     Ok(Model { meshes, materials })
-}
-
-pub trait DrawModel<'a> {
-    fn draw_mesh(&mut self, mesh: &'a Mesh);
-    fn draw_mesh_instanced(&mut self, mesh: &'a Mesh, instances: Range<u32>);
 }

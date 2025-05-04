@@ -9,8 +9,6 @@ use crate::texture::Texture;
 use std::time::{Duration, Instant};
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
-use wgpu::hal::DynCommandEncoder;
-use wgpu::util::RenderEncoder;
 use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
@@ -30,7 +28,6 @@ pub enum MaybeRenderer {
 pub struct App {
     pub renderer: MaybeRenderer,
     start_time: instant::Instant,
-    shadow_pass_debug_camera_bind_group: Option<wgpu::BindGroup>,
     target_frame_time: Duration,
 }
 
@@ -39,7 +36,6 @@ impl App {
         Self {
             renderer: MaybeRenderer::Proxy(RenderProxy::new(event_loop.create_proxy())),
             start_time: Instant::now(),
-            shadow_pass_debug_camera_bind_group: None,
             target_frame_time: Duration::from_secs_f64(1.0 / 60.0),
         }
     }
@@ -286,7 +282,6 @@ impl ApplicationHandler<Renderer> for App {
         event: DeviceEvent,
     ) {
         match event {
-            DeviceEvent::MouseMotion { delta } => {}
             _ => (),
         }
     }

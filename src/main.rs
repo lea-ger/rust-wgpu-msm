@@ -8,13 +8,7 @@ mod texture;
 mod light;
 
 use crate::application::App;
-use std::time::{Duration, Instant};
-use wasm_bindgen::prelude::wasm_bindgen;
-use wasm_bindgen::UnwrapThrowExt;
-use winit::application::ApplicationHandler;
-use winit::event::{Event, StartCause};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 
 fn main() {
     let event_loop = EventLoop::with_user_event().build().unwrap();

@@ -1,4 +1,4 @@
-use crate::camera::{Camera, CameraUniform};
+use crate::camera::CameraUniform;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3};
 use std::num::NonZeroU32;
