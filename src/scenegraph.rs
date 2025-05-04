@@ -66,7 +66,7 @@ pub struct RenderNode {
 
 #[derive(Debug)]
 pub struct LightNode {
-    node: NodeData,
+    pub node: NodeData,
     pub light: Light,
 }
 
@@ -113,7 +113,7 @@ impl RenderNode {
         render_node
     }
 
-    fn set_matrix(&mut self, matrix: Mat4, device: &wgpu::Device) {
+    pub fn set_matrix(&mut self, matrix: Mat4, device: &wgpu::Device) {
         self.node.set_matrix(matrix);
         let transformed_vertices: Vec<Vertex> = self
             .vertices
@@ -362,6 +362,10 @@ impl SceneGraph {
                 label: Some("Light Bind Group"),
             }));
         }
+    }
+    
+    pub fn set_callback (&mut self, callback: Box<dyn Fn(&SceneGraph)>) {
+        self.on_frame_update_callback = Some(callback);
     }
 
     pub fn on_frame_update(&mut self) {

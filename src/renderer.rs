@@ -107,7 +107,7 @@ impl Pipeline {
 }
 
 pub struct Renderer {
-    window: Rc<Window>,
+    pub window: Rc<Window>,
     instance: Instance,
     pub surface: Surface<'static>,
     pub surface_config: SurfaceConfiguration,
@@ -424,7 +424,7 @@ pub async fn create_scenegraph(
     supports_storage_resources: bool,
     shadow_map: ShadowMap
 ) -> SceneGraph {
-    let light_pos = Vec3::new(0.0, 15.0, 20.0);
+    let light_pos = Vec3::new(0.0, 25.0, 30.0);
     let light_sun = Light::new(
         light_pos,
         wgpu::Color {
@@ -520,21 +520,52 @@ pub async fn create_scenegraph(
         material_bind_group_layout,
         Mat4::IDENTITY,
     );
-    scenegraph.add_light_node(
-        None,
-        "light".to_string(),
-        device,
-        light_sun,
-    );
-    /*scenegraph.add_model_node(
+    scenegraph.add_light_node(None, "light".to_string(), device, light_sun);
+    scenegraph.add_model_node(
         None,
         "light_model".to_string(),
         device,
         &light_sun_model,
         material_bind_group_layout,
         Mat4::from_translation(light_pos),
-    );*/
+    );
     scenegraph
+}
+
+pub fn rotate_sun(device: &Device, scene_graph: &mut SceneGraph, time: f32) {
+    let mut pos;
+    {
+        let node = scene_graph.find_child_mut(Some("light")).unwrap();
+        let light_node = match node {
+            Node::LightNode(light) => light,
+            _ => panic!("Expected a light node"),
+        };
+        let light = &mut light_node.light;
+
+        let radius = 30.0;
+        let speed = 0.5;
+        let angle = time * speed as f32 * std::f32::consts::PI / 2.0;
+
+        light.pos.x = radius * angle.cos();
+        light.pos.z = radius * angle.sin();
+        pos = light.pos;
+    }
+
+    {
+        let model_node = scene_graph.find_child_mut(Some("light_model-light"));
+        if model_node.is_none() {
+            return;
+        }
+        let model_node = model_node.unwrap();
+        let light_model_node = match model_node {
+            Node::RenderNode(render) => render,
+            _ => return
+        };
+
+        light_model_node.set_matrix(Mat4::from_translation(pos), device);
+    };
+
+    scene_graph.update_light_bind_group(device);
 }
 
 pub struct RenderProxy {

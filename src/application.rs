@@ -3,10 +3,10 @@
  * Reason is that it's tricky to set up a WGPU pipeline using the latest version of WGPU and Winit, especially when targeting the web.
  *
  */
-use crate::light::ShadowMap;
-use crate::renderer::{RenderProxy, Renderer};
+use crate::renderer::{rotate_sun, RenderProxy, Renderer};
 use crate::scenegraph::{DrawScenegraph, SceneGraphLightNodeIterator};
 use crate::texture::Texture;
+use std::time::{Duration, Instant};
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
 use wgpu::hal::DynCommandEncoder;
@@ -20,29 +20,30 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::WindowId,
 };
-use crate::camera::CameraUniform;
 
-enum MaybeRenderer {
+pub enum MaybeRenderer {
     Proxy(RenderProxy),
     Renderer(Renderer),
 }
 
 pub struct App {
-    renderer: MaybeRenderer,
-    last_render_time: instant::Instant,
+    pub renderer: MaybeRenderer,
+    start_time: instant::Instant,
     shadow_pass_debug_camera_bind_group: Option<wgpu::BindGroup>,
+    target_frame_time: Duration,
 }
 
 impl App {
     pub fn new(event_loop: &EventLoop<Renderer>) -> Self {
         Self {
             renderer: MaybeRenderer::Proxy(RenderProxy::new(event_loop.create_proxy())),
-            last_render_time: instant::Instant::now(),
+            start_time: Instant::now(),
             shadow_pass_debug_camera_bind_group: None,
+            target_frame_time: Duration::from_secs_f64(1.0 / 60.0),
         }
     }
 
-    fn draw(&mut self) {
+    pub fn draw(&mut self) {
         let MaybeRenderer::Renderer(renderer) = &mut self.renderer else {
             return;
         };
@@ -51,9 +52,9 @@ impl App {
         let view = frame.texture.create_view(&Default::default());
         let mut encoder = renderer.device.create_command_encoder(&Default::default());
 
-        let now = instant::Instant::now();
-        let dt = now - self.last_render_time;
-        self.last_render_time = now;
+        let now = Instant::now();
+
+        rotate_sun(&renderer.device, &mut renderer.scene_graph, (now - self.start_time).as_secs_f32());
 
         // shadow pass
         {
@@ -187,18 +188,6 @@ impl ApplicationHandler<Renderer> for App {
         self.renderer = MaybeRenderer::Renderer(graphics);
     }
 
-    fn device_event(
-        &mut self,
-        _: &ActiveEventLoop,
-        _: DeviceId,
-        event: DeviceEvent,
-    ) {
-        match event {
-            DeviceEvent::MouseMotion { delta } => {}
-            _ => (),
-        }
-    }
-
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -207,7 +196,22 @@ impl ApplicationHandler<Renderer> for App {
     ) {
         match event {
             WindowEvent::Resized(size) => self.resized(size),
-            WindowEvent::RedrawRequested => self.draw(),
+            WindowEvent::RedrawRequested => {
+                let frame_start = Instant::now();
+
+                self.draw();
+
+                let elapsed = frame_start.elapsed();
+                if elapsed < self.target_frame_time {
+                    let wait_duration = self.target_frame_time - elapsed;
+                    std::thread::sleep(wait_duration);
+                }
+
+                let MaybeRenderer::Renderer(renderer) = &mut self.renderer else {
+                    return;
+                };
+                renderer.window.request_redraw();
+            },
             WindowEvent::CloseRequested
             | WindowEvent::KeyboardInput {
                 event:
@@ -256,6 +260,18 @@ impl ApplicationHandler<Renderer> for App {
                     }
                 }
             }
+            _ => (),
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        _: &ActiveEventLoop,
+        _: DeviceId,
+        event: DeviceEvent,
+    ) {
+        match event {
+            DeviceEvent::MouseMotion { delta } => {}
             _ => (),
         }
     }
