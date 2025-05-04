@@ -67,7 +67,10 @@ fn fetch_shadow(light_id: u32, ls_pos: vec4<f32>) -> f32 {
     let moments = textureSampleLevel(t_shadow, sampler_shadow, light_local, i32(light_id), 0.0);
     let reversed_moments = convert_optimized_moments(moments);
 
-    return compute_msm_shadow_intensity(reversed_moments, depth);
+    return reduce_light_bleeding(
+        compute_msm_shadow_intensity(reversed_moments, depth),
+        0.001
+    );
 }
 
 // Reverts the projection of the moments done in the shadow pass
@@ -85,10 +88,8 @@ fn convert_optimized_moments(optimized: vec4<f32>) -> vec4<f32> {
     return M_inv * adjusted;
 }
 
-
 fn compute_msm_shadow_intensity(moments: vec4<f32>, fragmentDepth: f32) -> f32 {
-    // TODO: bias
-    let b = moments + 0.005;
+    let b = mix(moments, vec4<f32>(0.5), 0.02);
 
     // cholesky
     let l32_d22 = -b.x * b.y + b.z;
@@ -138,6 +139,10 @@ fn compute_msm_shadow_intensity(moments: vec4<f32>, fragmentDepth: f32) -> f32 {
     let intensity = clamp(rawLight, 0.0, 1.0);
 
     return 1.0 - intensity;
+}
+
+fn reduce_light_bleeding(p_max: f32, amount: f32) -> f32 {
+    return clamp((p_max - amount) / (1.0 - amount), 0.0, 1.0);
 }
 
 struct Material {

@@ -13,17 +13,10 @@
   <component name="ChangeListManager">
     <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat: rotate light source for more interactivity">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/light.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/shadow.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shadow.wgsl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/texture.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/texture.rs" afterDir="false" />
     </list>
-    <list id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="chore: add built version of">
-      <change afterPath="$PROJECT_DIR$/msm-demo.exe" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/no-msm-demo.exe" afterDir="false" />
-    </list>
+    <list id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="chore: add built version of" />
     <list id="92af6401-1905-416a-9c46-e17fd2921c5a" name="shadow" comment="feat(wip): shadow map" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -76,7 +69,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "no-msm",
+    "git-widget-placeholder": "master",
     "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Users/Leander/RustroverProjects/msm-demo",
     "node.js.detected.package.eslint": "true",

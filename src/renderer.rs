@@ -360,8 +360,16 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
                 write_mask: wgpu::ColorWrites::ALL,
             })],
             Some(texture::Texture::DEPTH_FORMAT),
-            None,
-            None,
+            Some(wgpu::DepthBiasState {
+                constant: 2,
+                slope_scale: 2.0,
+                clamp: 0.0005,
+            }),
+            Some(MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            }),
         );
         let shadow_depth_texture = texture::Texture::create_depth_texture_with_dimensions(
             &device,
