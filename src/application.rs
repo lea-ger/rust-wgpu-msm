@@ -20,6 +20,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::WindowId,
 };
+use crate::light::ShadowMap;
 
 pub enum MaybeRenderer {
     Proxy(RenderProxy),
@@ -150,9 +151,16 @@ fn render_shadow_pass(renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
         let light = &light_node.0.light;
         let model = light_node.1;
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            color_attachments: &[],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &light.target_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &renderer.shadow_depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
@@ -161,6 +169,15 @@ fn render_shadow_pass(renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
             }),
             ..Default::default()
         });
+
+        rpass.set_viewport(
+            0.0,
+            0.0,
+            ShadowMap::SHADOW_MAP_SIZE as f32,
+            ShadowMap::SHADOW_MAP_SIZE as f32,
+            0.0,
+            1.0,
+        );
 
         rpass.set_pipeline(&renderer.shadow_pipeline.pipeline);
         rpass.set_bind_group(1, &renderer.model_matrix_bind_group, &[]);
@@ -247,9 +264,7 @@ impl ApplicationHandler<Renderer> for App {
                     }
                 }
             }
-            WindowEvent::CursorMoved {
-                ..
-            } => {
+            WindowEvent::CursorMoved { .. } => {
                 if let MaybeRenderer::Renderer(renderer) = &mut self.renderer {
                     let state_changed = renderer
                         .camera_state
