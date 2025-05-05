@@ -54,7 +54,7 @@ var<uniform> u_lights: array<Light, 10>;
 @group(3) @binding(2) var sampler_shadow: sampler;
 
 fn fetch_shadow(light_id: u32, ls_pos: vec4<f32>) -> f32 {
-    if (ls_pos.w <= 0.0) {
+    if (ls_pos.w <= 0.0 || ls_pos.z <= 0.0) {
         return 1.0;
     }
     // compensate for the Y-flip difference between the NDC and texture coordinates
@@ -69,7 +69,7 @@ fn fetch_shadow(light_id: u32, ls_pos: vec4<f32>) -> f32 {
 
     return reduce_light_bleeding(
         compute_msm_shadow_intensity(reversed_moments, depth),
-        0.001
+        0.2
     );
 }
 
@@ -88,16 +88,18 @@ fn convert_optimized_moments(optimized: vec4<f32>) -> vec4<f32> {
     return M_inv * adjusted;
 }
 
-fn compute_msm_shadow_intensity(moments: vec4<f32>, fragmentDepth: f32) -> f32 {
-    let b = mix(moments, vec4<f32>(0.5), 0.02);
+fn compute_msm_shadow_intensity(moments: vec4<f32>, fragment_depth: f32) -> f32 {
+    let b = mix(moments, vec4<f32>(0.5), 0.03);
+    var z: vec3<f32>;
+    z.x = fragment_depth;
 
     // cholesky
     let l32_d22 = -b.x * b.y + b.z;
     let d22 = -b.x * b.x + b.y;
-    let squaredDepthVar = -b.y * b.y + b.w;
+    let squared_depth_var = -b.y * b.y + b.w;
 
     let d33_d22 = dot(
-        vec2<f32>(squaredDepthVar, -l32_d22),
+        vec2<f32>(squared_depth_var, -l32_d22),
         vec2<f32>(d22,          l32_d22)
     );
 
@@ -105,38 +107,39 @@ fn compute_msm_shadow_intensity(moments: vec4<f32>, fragmentDepth: f32) -> f32 {
     let l32 = l32_d22 * inv_d22;
 
     // build quadratic equation to find z1 and z2
-    let z0 = fragmentDepth;
-    var c = vec3<f32>(1.0, z0 - b.x, z0 * z0);
+    var c = vec3<f32>(1.0, z.x, z.x * z.x);
 
+    c.y -= b.x;
     c.z -= b.y + l32 * c.y;
     c.y *= inv_d22;
     c.z *= d22 / d33_d22;
     c.y -= l32 * c.z;
     c.x -= dot(c.yz, b.xy);
 
-    let inv_c2 = 1.0 / c.z;
-    let p = c.y * inv_c2;
-    let q = c.x * inv_c2;
+    let p = c.y / c.z;
+    let q = c.x / c.z;
     let radicand = (p * p * 0.25) - q;
     let r = sqrt(max(radicand, 0.0));
-    let z1 = -0.5 * p - r;
-    let z2 = -0.5 * p + r;
+    z.y = -0.5 * p - r;
+    z.z = -0.5 * p + r;
 
-    var switchVals = vec4<f32>(0.0);
+    var switch_vals = vec4<f32>(0.0);
     // z2 < z0  → [ z1, z0, 1, 1 ]
-    if (z2 < z0) {
-        switchVals = vec4<f32>(z1, z0, 1.0, 1.0);
-    } else if (z1 < z0) {
+    if (z.z < z.x) {
+        switch_vals = vec4<f32>(z.y, z.x, 1.0, 1.0);
+    } else if (z.y < z.x) {
         // z1 < z0  → [ z0, z1, 0, 1 ]
-        switchVals = vec4<f32>(z0, z1, 0.0, 1.0);
+        switch_vals = vec4<f32>(z.x, z.y, 0.0, 1.0);
+    } else {
+        switch_vals = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     }
 
-    let numerator = switchVals.x * z2 - b.x * (switchVals.x + z2 + b.y);
-    let denominator = (z2 - switchVals.y) * (z0 - z1);
+    let numerator = switch_vals.x * z.z - b.x * (switch_vals.x + z.z + b.y);
+    let denominator = (z.z - switch_vals.y) * (z.x - z.y);
     let quotient = numerator / denominator;
 
-    let rawLight = switchVals.y + switchVals.z * quotient;
-    let intensity = clamp(rawLight, 0.0, 1.0);
+    let raw_light = switch_vals.z + switch_vals.w * quotient;
+    let intensity = clamp(raw_light, 0.0, 1.0);
 
     return 1.0 - intensity;
 }

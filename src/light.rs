@@ -102,8 +102,9 @@ impl Light {
     pub fn calculate_matrix(&self, model: Mat4) -> Mat4 {
         let pos4 = glam::Vec4::new(self.pos.x, self.pos.y, self.pos.z, 1.0);
         let position = model * pos4;
-        let view = Mat4::look_at_rh(position.truncate(), Vec3::ZERO, Vec3::Y);
-        let projection = Mat4::perspective_rh(60.0f32.to_radians(), 1.0, 10.0, 60.0);
+        let center = Vec3::new(0.0, 0.0, -15.0);
+        let view = Mat4::look_at_rh(position.truncate(), center, Vec3::Y);
+        let projection = Mat4::perspective_rh(60.0f32.to_radians(), 1.0, 1.0, 50.0);
         projection * view
     }
 

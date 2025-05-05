@@ -559,8 +559,9 @@ pub fn rotate_sun(device: &Device, scene_graph: &mut SceneGraph, time: f32) {
         let speed = 0.5;
         let angle = time * speed as f32 * std::f32::consts::PI / 2.0;
 
-        light.pos.x = radius * angle.cos();
-        light.pos.z = radius * angle.sin();
+        let center = Vec3::new(0.0, 0.0, -15.0);
+        light.pos.x = center.x + radius * angle.cos();
+        light.pos.z = center.z + radius * angle.sin();
         pos = light.pos;
     }
 
