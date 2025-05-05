@@ -3,12 +3,14 @@
  * Reason is that it's tricky to set up a WGPU pipeline using the latest version of WGPU and Winit, especially when targeting the web.
  *
  */
+use crate::light::ShadowMap;
 use crate::renderer::{rotate_sun, RenderProxy, Renderer};
 use crate::scenegraph::{DrawScenegraph, SceneGraphLightNodeIterator};
 use crate::texture::Texture;
 use std::time::{Duration, Instant};
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
+use wgpu::hal::DynCommandEncoder;
 use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
@@ -18,7 +20,6 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::WindowId,
 };
-use crate::light::ShadowMap;
 
 pub enum MaybeRenderer {
     Proxy(RenderProxy),
@@ -56,6 +57,11 @@ impl App {
         // shadow pass
         {
             render_shadow_pass(renderer, &mut encoder);
+        }
+
+        unsafe {
+            render_gaussian_pass(renderer, &mut encoder, true);
+            render_gaussian_pass(renderer, &mut encoder, false);
         }
 
         renderer
@@ -188,6 +194,32 @@ fn render_shadow_pass(renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
 
         rpass.draw_scenegraph_vertices(scene_graph, &renderer.queue, &renderer.model_matrix_buffer);
     }
+}
+
+unsafe fn render_gaussian_pass(
+    renderer: &Renderer,
+    encoder: &mut wgpu::CommandEncoder,
+    vertical: bool,
+) {
+    let gaussian_pass = &renderer.gaussian_pass;
+
+    let bind_group = if vertical {
+        &gaussian_pass.vertical_blur_bind_group
+    } else {
+        &gaussian_pass.horizontal_blur_bind_group
+    };
+
+    let size = ShadowMap::SHADOW_MAP_SIZE;
+    let dispatch_x = (size + 15) / 16;
+    let dispatch_y = (size + 15) / 16;
+
+    let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+        label: Some("gaussian_pass"),
+        timestamp_writes: None,
+    });
+    cpass.set_pipeline(&gaussian_pass.blur_pipeline);
+    cpass.set_bind_group(0, bind_group, &[]);
+    cpass.dispatch_workgroups(dispatch_x, dispatch_y, 3);
 }
 
 impl ApplicationHandler<Renderer> for App {

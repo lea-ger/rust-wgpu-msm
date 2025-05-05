@@ -2,7 +2,7 @@ use crate::camera::CameraUniform;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3};
 use std::num::NonZeroU32;
-use wgpu::{Texture, TextureView};
+use wgpu::{Texture, TextureUsages, TextureView};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -104,7 +104,7 @@ impl Light {
         let position = model * pos4;
         let center = Vec3::new(0.0, 0.0, -15.0);
         let view = Mat4::look_at_rh(position.truncate(), center, Vec3::Y);
-        let projection = Mat4::perspective_rh(60.0f32.to_radians(), 1.0, 1.0, 50.0);
+        let projection = Mat4::perspective_rh(60.0f32.to_radians(), 1.0, 5.0, 50.0);
         projection * view
     }
 
@@ -116,6 +116,7 @@ impl Light {
     }
 }
 
+#[derive(Clone)]
 pub struct ShadowMap {
     pub texture: Texture,
     pub view: TextureView,
@@ -127,7 +128,7 @@ impl ShadowMap {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba32Float;
     pub const SHADOW_MAP_SIZE: u32 = 2048;
 
-    pub fn create_shadow_map(device: &wgpu::Device) -> Self {
+    pub fn create_shadow_map(device: &wgpu::Device, usages: Option<TextureUsages>) -> Self {
         let desc = wgpu::TextureDescriptor {
             label: Some("Shadow Map"),
             size: wgpu::Extent3d {
@@ -139,9 +140,14 @@ impl ShadowMap {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_SRC,
+            usage: if let Some(usages) = usages {
+                usages
+            } else {
+                TextureUsages::RENDER_ATTACHMENT
+                    | TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::COPY_SRC
+            },
             view_formats: &[],
         };
         let texture = device.create_texture(&desc);

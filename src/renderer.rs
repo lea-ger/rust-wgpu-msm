@@ -1,20 +1,19 @@
 use crate::camera::{Camera, CameraController, CameraUniform};
 use crate::light::{Light, ShadowMap};
 use crate::model::{load_model, Material, Mesh, Model, Vertex, CUBE_INDICES, CUBE_VERTICES};
-use crate::scenegraph::{
-     ModelUniform, Node, SceneGraph,
-};
+use crate::scenegraph::{ModelUniform, Node, SceneGraph};
 use crate::texture;
 use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use std::future::Future;
 use wasm_bindgen::{throw_str, UnwrapThrowExt};
+use wgpu::util::DeviceExt;
 use wgpu::{
     Adapter, BindGroupLayout, Device, Instance, MultisampleState, Queue, Surface,
     SurfaceConfiguration,
 };
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
-use winit::window::{Window};
+use winit::window::Window;
 
 #[cfg(target_arch = "wasm32")]
 type Rc<T> = std::rc::Rc<T>;
@@ -100,6 +99,135 @@ impl Pipeline {
     }
 }
 
+pub struct GaussianPass {
+    pub blur_pipeline: wgpu::ComputePipeline,
+    pub bind_group_layout: BindGroupLayout,
+    pub horizontal_blur_bind_group: wgpu::BindGroup,
+    pub vertical_blur_bind_group: wgpu::BindGroup,
+    pub horizontal_direction_buffer: wgpu::Buffer,
+    pub vertical_direction_buffer: wgpu::Buffer,
+}
+
+impl GaussianPass {
+    pub fn new(
+        device: &wgpu::Device,
+        shader_module: &wgpu::ShaderModule,
+        shadow_map_view: &wgpu::TextureView,
+        ping_pong_view: &wgpu::TextureView,
+        storage_format: wgpu::TextureFormat,
+    ) -> Self {
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("gaussian::bind_group_layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                        format: storage_format,
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("gaussian_pipeline_layout"),
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+        let blur_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("gaussian_compute_pipeline"),
+            layout: Some(&pipeline_layout),
+            module: shader_module,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+
+        let horizontal_direction_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("gaussian_horizontal_direction"),
+                contents: bytemuck::bytes_of(&0u32),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+        let vertical_direction_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("gaussian_vertical_direction"),
+                contents: bytemuck::bytes_of(&1u32),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+
+        let horizontal_blur_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("gaussian_horizontal_bind_group"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(shadow_map_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(ping_pong_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: horizontal_direction_buffer.as_entire_binding(),
+                },
+            ],
+        });
+
+        let vertical_blur_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("gaussian_vertical_bind_group"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(ping_pong_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(shadow_map_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: vertical_direction_buffer.as_entire_binding(),
+                },
+            ],
+        });
+
+        Self {
+            blur_pipeline,
+            bind_group_layout,
+            horizontal_blur_bind_group,
+            vertical_blur_bind_group,
+            horizontal_direction_buffer,
+            vertical_direction_buffer,
+        }
+    }
+}
+
 pub struct Renderer {
     pub window: Rc<Window>,
     instance: Instance,
@@ -109,7 +237,7 @@ pub struct Renderer {
     pub device: Device,
     pub queue: Queue,
     pub render_pipeline: Pipeline,
-    pub shadow_pipeline: Pipeline,
+    pub shadow_pipeline: Pipeline, // TODO extract struct
     pub scene_graph: SceneGraph,
     pub depth_texture: texture::Texture,
     pub shadow_depth_texture: texture::Texture,
@@ -118,6 +246,7 @@ pub struct Renderer {
     pub camera_state: CameraState,
     pub sp_camera_buffer: wgpu::Buffer,
     pub sp_camera_bind_group: wgpu::BindGroup,
+    pub gaussian_pass: GaussianPass,
 }
 
 pub struct CameraState {
@@ -259,6 +388,10 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shadow.wgsl"))),
         });
+        let gaussian_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("gaussian.wgsl"))),
+        });
 
         let material_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -322,14 +455,26 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             label: Some("model_matrix_bind_group"),
         });
 
-        let shadow_map = ShadowMap::create_shadow_map(&device);
+        let shadow_map = ShadowMap::create_shadow_map(&device, None);
+        let gaussian_output = ShadowMap::create_shadow_map(
+            &device,
+            None,
+        );
+
+        let gaussian_pass = GaussianPass::new(
+            &device,
+            &gaussian_shader,
+            &shadow_map.view,
+            &gaussian_output.view,
+            ShadowMap::DEPTH_FORMAT,
+        );
 
         let scene_graph = create_scenegraph(
             &device,
             &queue,
             &material_bind_group_layout,
             supports_storage_resources,
-            shadow_map,
+            gaussian_output,
         )
         .await;
 
@@ -428,6 +573,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Ren
             camera_state,
             sp_camera_buffer,
             sp_camera_bind_group,
+            gaussian_pass,
         }
     }
 }
@@ -573,7 +719,7 @@ pub fn rotate_sun(device: &Device, scene_graph: &mut SceneGraph, time: f32) {
         let model_node = model_node.unwrap();
         let light_model_node = match model_node {
             Node::RenderNode(render) => render,
-            _ => return
+            _ => return,
         };
 
         light_model_node.set_matrix(Mat4::from_translation(pos), device);

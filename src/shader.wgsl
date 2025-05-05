@@ -54,9 +54,10 @@ var<uniform> u_lights: array<Light, 10>;
 @group(3) @binding(2) var sampler_shadow: sampler;
 
 fn fetch_shadow(light_id: u32, ls_pos: vec4<f32>) -> f32 {
-    if (ls_pos.w <= 0.0 || ls_pos.z <= 0.0) {
+    if (ls_pos.w <= 0.0) {
         return 1.0;
     }
+
     // compensate for the Y-flip difference between the NDC and texture coordinates
     let flip_correction = vec2<f32>(0.5, -0.5);
     // compute texture coordinates for shadow lookup
@@ -69,7 +70,7 @@ fn fetch_shadow(light_id: u32, ls_pos: vec4<f32>) -> f32 {
 
     return reduce_light_bleeding(
         compute_msm_shadow_intensity(reversed_moments, depth),
-        0.2
+        0.0
     );
 }
 
@@ -89,7 +90,7 @@ fn convert_optimized_moments(optimized: vec4<f32>) -> vec4<f32> {
 }
 
 fn compute_msm_shadow_intensity(moments: vec4<f32>, fragment_depth: f32) -> f32 {
-    let b = mix(moments, vec4<f32>(0.5), 0.03);
+    let b = mix(moments, vec4<f32>(0.5), 0.0003);
     var z: vec3<f32>;
     z.x = fragment_depth;
 
