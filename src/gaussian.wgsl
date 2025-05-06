@@ -7,7 +7,7 @@ var output_texture: texture_storage_2d_array<rgba32float, write>;
 @group(0) @binding(2)
 var<uniform> is_vertical: u32;
 
-const KERNEL_RADIUS: i32 = 5;
+const KERNEL_RADIUS: i32 = 8;
 const KERNEL_SIZE: i32 = (KERNEL_RADIUS * 2 + 1);
 const INV_KERNEL_SIZE: f32 = 1.0 / f32(KERNEL_SIZE);
 
