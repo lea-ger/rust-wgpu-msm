@@ -11,12 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="fix: try to make further optimizations">
-      <change afterPath="$PROJECT_DIR$/src/gaussian.wgsl" afterDir="false" />
+    <list default="true" id="ee2e1fb8-dd07-4833-80f1-7d41a901f8fb" name="Changes" comment="feat: gaussian blur">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/application.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/light.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/light.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/renderer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/renderer.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/gaussian.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/gaussian.wgsl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/shader.wgsl" beforeDir="false" afterPath="$PROJECT_DIR$/src/shader.wgsl" afterDir="false" />
     </list>
     <list id="fe8a4eff-7a2d-47d6-b576-48fcb3dc23fd" name="built" comment="chore: add built version of">
@@ -196,7 +193,8 @@
       <workItem from="1745352407748" duration="871000" />
       <workItem from="1745354303199" duration="10425000" />
       <workItem from="1745443708040" duration="948000" />
-      <workItem from="1746437300272" duration="9117000" />
+      <workItem from="1746437300272" duration="9416000" />
+      <workItem from="1746526454195" duration="4149000" />
     </task>
     <task id="LOCAL-00001" summary="setup basic rendering">
       <option name="closed" value="true" />
@@ -382,7 +380,15 @@
       <option name="project" value="LOCAL" />
       <updated>1746407003286</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="feat: gaussian blur">
+      <option name="closed" value="true" />
+      <created>1746447233376</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1746447233376</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -420,6 +426,7 @@
     <MESSAGE value="feat: rotate light source for more interactivity" />
     <MESSAGE value="chore: tidying" />
     <MESSAGE value="fix: try to make further optimizations" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: try to make further optimizations" />
+    <MESSAGE value="feat: gaussian blur" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: gaussian blur" />
   </component>
 </project>

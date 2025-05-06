@@ -90,7 +90,7 @@ fn convert_optimized_moments(optimized: vec4<f32>) -> vec4<f32> {
 }
 
 fn compute_msm_shadow_intensity(moments: vec4<f32>, fragment_depth: f32) -> f32 {
-    let b = mix(moments, vec4<f32>(0.5), 0.0003);
+    let b = mix(moments, vec4<f32>(0.5), 0.03);
     var z: vec3<f32>;
     z.x = fragment_depth;
 

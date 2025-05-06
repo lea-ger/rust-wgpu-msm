@@ -29,15 +29,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // Horizontal box blur
         for (var i = -KERNEL_RADIUS; i <= KERNEL_RADIUS; i++) {
             let sx = clamp(x + i, 0, width - 1);
-            let sample = textureLoad(input_texture, vec2<i32>(sx, y), layer, 0);
-            sum += sample;
+            let t_sample = textureLoad(input_texture, vec2<i32>(sx, y), layer, 0);
+            sum += t_sample;
         }
     } else {
         // Vertical box blur
         for (var i = -KERNEL_RADIUS; i <= KERNEL_RADIUS; i++) {
             let sy = clamp(y + i, 0, height - 1);
-            let sample = textureLoad(input_texture, vec2<i32>(x, sy), layer, 0);
-            sum += sample;
+            let t_sample = textureLoad(input_texture, vec2<i32>(x, sy), layer, 0);
+            sum += t_sample;
         }
     }
 
